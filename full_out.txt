@@ -1,0 +1,10 @@
+EVAC BUTTON: 🚪 Эвакуация (5)
+EVAC STATE: {"evac":5,"total":5}
+OVER SHOWN: true TITLE: 🚪 Эвакуация успешна!
+MENU AFTER RESTART: true SLOTS: ["Готов к забегу","Пусто","Пусто"]
+META GOLD SCREEN: 🪙 25
+SECOND RUN STARTS: true
+AFTER SAVE-EXIT ACTIONS: ["continue","delete","shop","shop"]
+RESUME ACTIVE RUN WORKS: true
+CANVAS FIT: {"w":1368,"h":841,"win":[1400,900]}
+ERRORS: NONE
