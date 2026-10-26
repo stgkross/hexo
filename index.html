@@ -3,17 +3,22 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Hex Tactics — v16</title>
+<title>Hex Tactics — v17 · обновлено 26.10.2026 02:57</title>
+<meta name="game-version" content="v17">
+<meta name="last-update" content="26.10.2026 02:57">
 <style>
   *{box-sizing:border-box}
-  body{margin:0;padding:14px;background:radial-gradient(1200px 700px at 15% -10%,#1a2a4a 0%,transparent 60%),radial-gradient(900px 600px at 90% 110%,#2a1a3a 0%,transparent 55%),radial-gradient(1400px 900px at 50% 50%,#0d1420 0%,#06090f 70%);color:#dbe4f0;font-family:system-ui,sans-serif;display:flex;align-items:flex-start;justify-content:center;min-height:100vh}
-  #app{display:none;gap:16px;align-items:flex-start;flex-wrap:wrap;justify-content:center}
+  html,body{height:100%}
+  body{margin:0;padding:10px;background:radial-gradient(1200px 700px at 15% -10%,#1a2a4a 0%,transparent 60%),radial-gradient(900px 600px at 90% 110%,#2a1a3a 0%,transparent 55%),radial-gradient(1400px 900px at 50% 50%,#0d1420 0%,#06090f 70%);color:#dbe4f0;font-family:system-ui,sans-serif;display:flex;flex-direction:column;min-height:100vh;overflow:hidden}
+  #app{display:none;gap:12px;align-items:stretch;flex:1;min-height:0;width:100%}
   #app.open{display:flex}
-  #board{background:#0a0f18;border-radius:16px;padding:6px;box-shadow:inset 0 0 0 1px #1b2534,0 30px 80px rgba(0,0,0,.75)}
+  #board{flex:1;min-width:0;min-height:0;display:flex;background:#0a0f18;border-radius:16px;padding:6px;box-shadow:inset 0 0 0 1px #1b2534,0 30px 80px rgba(0,0,0,.75)}
   canvas{display:block;border-radius:12px;touch-action:none;cursor:grab;user-select:none}
   canvas.grabbing{cursor:grabbing!important}
   canvas.pointer{cursor:pointer!important}
-  #side{width:320px;display:flex;flex-direction:column;gap:10px}
+  #side{width:320px;flex-shrink:0;display:flex;flex-direction:column;gap:10px;overflow-y:auto;max-height:100%;scrollbar-width:thin}
+  #footerBar{flex-shrink:0;text-align:center;font-size:11px;color:#6f8199;padding:6px 0 2px;letter-spacing:.04em}
+  #footerBar b{color:#cfe0f5;font-weight:600}
   h1{font-size:11px;letter-spacing:.18em;text-transform:uppercase;margin:0;color:#6f8199;font-weight:600}
   .panel{background:linear-gradient(180deg,#101826,#0b121c);border:1px solid #1e2a3a;border-radius:12px;padding:11px;font-size:12.5px;line-height:1.5}
   .res-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px}
@@ -142,7 +147,7 @@
 <body>
 <div id="startScreen"><div class="start-box">
   <div class="start-title">HEX TACTICS</div>
-  <div class="start-sub">Орда · Тактическая роглайт · v16</div>
+  <div class="start-sub">Орда · Тактическая роглайт · v17 · обновлено 26.10.2026 02:57</div>
   <div class="slots" id="slots"></div>
 </div></div>
 <div id="locationScreen"><div class="loc-box">
@@ -178,6 +183,7 @@
     <div class="panel"><div id="log"></div></div>
   </aside>
 </div>
+<div id="footerBar">Версия <b>v17</b> · Последнее обновление: <b>26.10.2026 02:57</b></div>
 <div id="over"><div class="box">
   <h2 id="overTitle"></h2><p id="overText"></p>
   <button id="restart">В главное меню</button>
@@ -209,7 +215,9 @@ const STORAGE = (function() {
   }
 })();
 
-const SIZE=30, R=10, SQRT3=Math.sqrt(3), W=690, H=420, CX=W/2, CY=H/2;
+const SIZE=30, R=10, SQRT3=Math.sqrt(3);
+let W=690, H=420, CX=W/2, CY=H/2;
+let S=null;
 const DIRS=[[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
 const KNIGHT_DIRS=[[2,-1],[1,-2],[-1,-2],[-2,-1],[-2,1],[-1,2],[1,2],[2,1]];
 const BLUE_ZONES=new Set(['2,-1','-1,2','0,-3','5,2','-4,-4']);
@@ -280,20 +288,35 @@ for (const h of MAP) {
 const cv=document.getElementById('cv');
 const ctx=cv.getContext('2d');
 const dpr=window.devicePixelRatio||1;
-cv.width=W*dpr; cv.height=H*dpr;
-cv.style.width=W+'px'; cv.style.height=H+'px';
-ctx.scale(dpr,dpr);
+function resizeCanvas() {
+  const board=document.getElementById('board');
+  const sideEl=document.getElementById('side');
+  const footer=document.getElementById('footerBar');
+  const pad=10;
+  const sideW=(sideEl&&sideEl.offsetParent)?(sideEl.offsetWidth+12):0;
+  let bw=window.innerWidth-pad*2-sideW-12;
+  let bh=window.innerHeight-pad*2-(footer?footer.offsetHeight+6:0)-12;
+  bw=Math.max(320,bw); bh=Math.max(260,bh);
+  if (board) board.style.width=bw+'px';
+  W=Math.floor(bw); H=Math.floor(bh); CX=W/2; CY=H/2;
+  cv.width=W*dpr; cv.height=H*dpr;
+  cv.style.width=W+'px'; cv.style.height=H+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  clampCamera();
+  if (S&&S.hero) draw();
+}
+window.addEventListener('resize',resizeCanvas);
+resizeCanvas();
 const tooltip=document.getElementById('tooltip');
 const invTooltip=document.getElementById('invTooltip');
 
-let S=null, currentSlot=-1, currentLocation=1;
+let currentSlot=-1, currentLocation=1;
 let isAnimating=false, phase=null;
 let visualProj=[], slashes=[], floaters=[], fxAnims=[];
 let camX=0, camY=0;
 let mouseDownInfo=null, isDragging=false, dragSrcSlot=null;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
-// ========== SKILL REGISTRY ==========
 function findNearestEnemyTo(q,r,maxR){let best=null,bd=maxR;for(const e of S.enemies){const d=hexDist(q,r,e.q,e.r);if(d<=bd){bd=d;best=e;}}return best;}
 
 const SKILL_LIST=[
@@ -449,7 +472,6 @@ const TERRAIN_INFO={
   curse:{icon:'☠',color:'#a855f7',fill:'#2a0e2a',stroke:'#8a2f9a',label:'+1/-2'}
 };
 
-// ========== SAVE/LOAD ==========
 function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
 
 function saveGame() {
@@ -484,7 +506,7 @@ function loadGame(slotId) {
     if (p._version!==SAVE_VERSION) { STORAGE.del(SAVE_PREFIX+slotId); return false; }
     if (!p.meta) p.meta=defaultMeta();
     if (p.gameOver || !p.units) {
-      return false; // активного забега нет — открываем магазин
+      return false;
     }
     S=p;
     S.hero=S.units.find(u=>u.isHero);
@@ -619,7 +641,6 @@ function buyShopItem(id,meta) {
     if (meta.gold<cost) return;
     meta.gold-=cost; meta.forge[sub]++;
   }
-  // Сохраняем мету
   const raw=STORAGE.get(SAVE_PREFIX+currentSlot);
   const save=raw?JSON.parse(raw):{_version:SAVE_VERSION,meta:meta,gameOver:true};
   save.meta=meta;
@@ -631,7 +652,6 @@ function buyShopItem(id,meta) {
   renderSlots();
 }
 
-// ========== NEW GAME ==========
 function startNewGame(meta) {
   document.getElementById('startScreen').classList.add('hide');
   document.getElementById('locationScreen').classList.remove('show');
@@ -686,25 +706,22 @@ function newGame(meta) {
   }
   recalcHeroStats();
 
-  // Спавн юнитов из зданий
   for (let i=0;i<meta.buildings.barracks;i++) spawnStarterUnit('warrior');
   for (let i=0;i<meta.buildings.archery;i++) spawnStarterUnit('archer');
   for (let i=0;i<meta.buildings.cavalry;i++) spawnStarterUnit('knight');
 
-  // POI
   for (const tpl of POI_TEMPLATES) {
     const poi={q:tpl.q,r:tpl.r,kind:tpl.kind,looted:false};
     S.pois.push(poi);
     if (POI_INFO[tpl.kind].guarded) spawnGuard(poi);
   }
-  // Эвакуация (постоянная)
   S.pois.push({q:EVAC_POS.q,r:EVAC_POS.r,kind:'evacuation',looted:false,permanent:true});
 
   addLog('🧙 Некромант пробудился. XP только за убийства.', true);
   if (meta.buildings.barracks||meta.buildings.archery||meta.buildings.cavalry) {
     addLog(`🏰 Стартовая армия: ${meta.buildings.barracks}⚔ ${meta.buildings.archery}🏹 ${meta.buildings.cavalry}🐎`, true);
   }
-  addLog('🚪 Точка эвакуации: (7,-5). Дойди и активируй для сохранения золота.');
+  addLog('🚪 Точка эвакуации: (7,-5). На точке — 2 хода, вдали — 5 ходов с автопоходжением.');
   updateUI(); draw();
 }
 function spawnStarterUnit(type) {
@@ -744,7 +761,6 @@ function recalcHeroStats() {
   h.weaponRange=weaponRange; h.equipManaBonus=manaBonus;
 }
 
-// ========== UTILS ==========
 function addLog(text,hl=false,cls=''){S.log.push({text,hl,cls});if(S.log.length>120)S.log.shift();}
 function clampCamera() {
   const ex=SIZE*SQRT3*R+SIZE*SQRT3/2, ey=SIZE*1.5*R+SIZE;
@@ -831,7 +847,6 @@ function computeIncome() {
 function computeUpkeep() {let up=0;for (const u of S.units) if (!u.isHero&&['warrior','archer','knight','brute'].includes(u.type)) up+=UPKEEP_PER_COMBAT;return up;}
 function acolyteGen(u) {const k=key(u.q,u.r);if(GOLD_ZONES.has(k))return {type:'gold',amount:GOLD_ACOLYTE_ZONE,active:!u.hasMoved};if(BLUE_ZONES.has(k))return {type:'mana',amount:MANA_ACOLYTE_BLUE,active:!u.hasMoved};return {type:'mana',amount:MANA_ACOLYTE,active:!u.hasMoved};}
 
-// ========== ACTIONS ==========
 function summon(q,r) {
   const cost=getSummonCost();
   if (S.mana<cost||!canSummonAt(q,r)) return false;
@@ -946,10 +961,19 @@ function addXp(amount) {
   let th=u.level*10;
   while (u.xp>=th) {u.xp-=th;u.level++;addLog(`⬆ Уровень ${u.level}!`,false,'lvl');S.pendingLevelUps++;th=u.level*10;}
 }
+function getEvacTurnsNeeded() {
+  if (!S.hero) return 2;
+  const poi=poiAt(S.hero.q,S.hero.r);
+  if (poi&&poi.kind==='evacuation') return 2;
+  return 5;
+}
 function startEvacuation() {
   if (!S.hero||S.hero.evacuating>0) return;
-  S.hero.evacuating=3;
-  addLog('🚪 Эвакуация начата! 3 хода уязвимости.',true,'lvl');
+  const onDoor=!!(poiAt(S.hero.q,S.hero.r)&&(poiAt(S.hero.q,S.hero.r).kind==='evacuation'));
+  S.hero.evacuating=getEvacTurnsNeeded();
+  S.hero.evacTotal=S.hero.evacuating;
+  S.hero.autoPath=[];
+  addLog(onDoor?'🚪 Эвакуация начата! 2 хода на месте.':`🚪 Эвакуация начата! ${S.hero.evacuating} ходов: герой сам идёт к точке.`,true,'lvl');
   updateUI(); draw();
 }
 async function completeEvacuation() {
@@ -976,7 +1000,6 @@ function loseGame() {
   updateUI(); draw();
 }
 
-// ========== COMBAT ==========
 function getDirection(q1,r1,q2,r2) {
   const dq=q2-q1,dr=r2-r1;
   if (dq===0&&dr===0) return [0,0];
@@ -1003,10 +1026,6 @@ async function animateStep(ref,nq,nr) {
   await sleep(170);
   delete ref.animFrom; delete ref.animTo;
 }
-// ===== Модульные боевые анимации =====
-// Единая точка входа: getAttackStyle(unit) выбирает стиль по оружию/типу юнита,
-// spawnAttackFx(style,...) создаёт эффект, drawAttackFx(fx,t) рисует его в цикле отрисовки.
-// Чтобы добавить новую анимацию — добавь кейс в эти три функции, ничего больше менять не нужно.
 function getAttackStyle(u) {
   if (u && u.isHero) {
     const w=S.inventory&&S.inventory.equipment&&S.inventory.equipment.weaponL;
@@ -1019,7 +1038,7 @@ function getAttackStyle(u) {
   }
   if (u && u.type==='archer') return 'bow';
   if (u && (u.type==='knight'||u.type==='brute')) return 'heavy';
-  return 'slash';
+  return 'basic';
 }
 function spawnAttackFx(style,from,to,attacker) {
   const now=performance.now();
@@ -1204,7 +1223,6 @@ async function enemyPhase() {
     if (!S.enemies.includes(e)||S.gameOver) continue;
     if (e.stunned) {e.stunned=false;continue;}
     e.movedThisTurn=false;
-    // Boss skill
     if (e.isBoss) { await processBossSkill(e); if (S.gameOver) return; }
     if (e.stationary&&!e.alerted) {
       const target=findEnemyTarget(e);
@@ -1220,6 +1238,32 @@ async function enemyPhase() {
     }
     if (target) {await enemyAttack(e,target);if(S.gameOver)return;await sleep(60);}
   }
+}
+async function heroEvacWalkStep() {
+  const h=S.hero;
+  if (!h||h.hp<=0) return false;
+  if (hexDist(h.q,h.r,EVAC_POS.q,EVAC_POS.r)<=1) return true;
+  if (h.movesLeft<=0) return false;
+  let best=null,bd=Infinity;
+  for (const [dq,dr] of DIRS) {
+    const nq=h.q+dq,nr=h.r+dr;
+    if (!inMap(nq,nr)) continue;
+    const ent=entityAt(nq,nr);
+    if (ent&&ent.kind==='unit') continue;
+    const d=hexDist(nq,nr,EVAC_POS.q,EVAC_POS.r);
+    if (d<bd||(d===bd&&best&&Math.random()<0.35)) {bd=d;best={q:nq,r:nr};}
+  }
+  if (!best) return false;
+  const blocked=entityAt(best.q,best.r);
+  if (blocked&&blocked.kind==='enemy') {
+    const dmg=Math.max(1,effectiveAtk(h)-blocked.ref.def);
+    damageEnemy(blocked.ref,dmg,h);
+    if (blocked.ref.hp<=0) onEnemyKilled(blocked.ref,h);
+    return !S.gameOver;
+  }
+  await animateStep(h,best.q,best.r);
+  h.movesLeft--; h.hasMoved=true;
+  return true;
 }
 async function processAutoMoves() {
   for (const u of [...S.units]) {
@@ -1239,7 +1283,6 @@ async function processAutoMoves() {
   }
 }
 
-// ========== SKILLS ==========
 async function tickProjectiles() {
   for (const p of [...S.projectiles]) {
     if (!S.projectiles.includes(p)) continue;
@@ -1405,7 +1448,6 @@ async function processSkillsTurn() {
   await sleep(60);
 }
 
-// ========== CARDS ==========
 function generateCardPool() {
   const h=S.hero;
   const cards=[];
@@ -1478,7 +1520,6 @@ function applyCard(card) {
   else if (card.type==='evolution') {h.evolutions.push(card.id);addLog(`✨ ЭВОЛЮЦИЯ: ${card.name}!`,true,'evo');}
 }
 
-// ========== END TURN ==========
 async function doEndTurn() {
   if (S.gameOver||isAnimating) return;
   isAnimating=true;
@@ -1500,11 +1541,23 @@ async function doEndTurn() {
     phase='cleanup';
     applyRegen(); applyIncomeAndUpkeep();
     if (S.gameOver) return;
-    // Эвакуация тик
     if (S.hero&&S.hero.evacuating>0) {
-      S.hero.evacuating--;
-      if (S.hero.evacuating===0) {await completeEvacuation();return;}
-      addLog(`🚪 Эвакуация: осталось ${S.hero.evacuating} ход.`,true);
+      const h=S.hero;
+      let arrived=false;
+      for (let i=0;i<h.movesLeft+1;i++) {
+        if (hexDist(h.q,h.r,EVAC_POS.q,EVAC_POS.r)<=1) {arrived=true;break;}
+        const ok=await heroEvacWalkStep();
+        if (S.gameOver) return;
+        if (!ok) break;
+      }
+      if (arrived||hexDist(h.q,h.r,EVAC_POS.q,EVAC_POS.r)<=1) {
+        h.evacuating=2;
+        h.evacTotal=2;
+        if (!h.evacArrivedLogged) {h.evacArrivedLogged=true;addLog('🚪 Герой на точке эвакуации: 2 хода.',true);}
+      }
+      h.evacuating--;
+      if (h.evacuating<=0) {await completeEvacuation();return;}
+      addLog(`🚪 Эвакуация: осталось ${h.evacuating} ход.`,true);
     }
     S.turn++;
     const newRound=Math.floor((S.turn-1)/ROUND_LENGTH)+1;
@@ -1589,7 +1642,6 @@ function spawnWave() {
   addLog(`⚠ ОРДА: ${spawned} врагов (${Math.round(total*0.80)} гоблинов, ${Math.round(total*0.15)} зомби)`,true,'lvl');
 }
 
-// ========== DRAWING ==========
 function drawHex(cx,cy,size,fill,stroke,lw=1.5) {
   ctx.beginPath();
   for (let i=0;i<6;i++) {
@@ -2031,17 +2083,16 @@ function draw() {
     const a=1-t2;
     const st=sl.style||'basic';
     if (st==='sword') {
-      // Дугообразный росчерк клинка от атакующего к цели
       const from=getPos(sl.attacker),to={x:sl.x,y:sl.y};
       const ang=Math.atan2(to.y-from.y,to.x-from.x);
-      const R=SIZE*0.95;
+      const rr=SIZE*0.95;
       const spread=1.15*(0.3+0.7*t2);
       ctx.save();
       ctx.strokeStyle=`rgba(220,240,255,${a})`; ctx.lineWidth=3.5; ctx.lineCap='round';
       ctx.shadowColor='#bfe3ff'; ctx.shadowBlur=8;
-      ctx.beginPath(); ctx.arc(from.x,from.y,R,ang-spread,ang+spread); ctx.stroke();
+      ctx.beginPath(); ctx.arc(from.x,from.y,rr,ang-spread,ang+spread); ctx.stroke();
       ctx.strokeStyle=`rgba(120,180,255,${a*0.5})`; ctx.lineWidth=7;
-      ctx.beginPath(); ctx.arc(from.x,from.y,R,ang-spread*0.6,ang+spread*0.6); ctx.stroke();
+      ctx.beginPath(); ctx.arc(from.x,from.y,rr,ang-spread*0.6,ang+spread*0.6); ctx.stroke();
       ctx.restore();
     } else if (st==='heavy') {
       ctx.strokeStyle=`rgba(255,150,80,${a})`; ctx.lineWidth=5;
@@ -2077,7 +2128,6 @@ function draw() {
   ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
 }
 
-// ========== UI ==========
 function pendingUnitsList() {
   return S.units.filter(u=>u&&!u.onHold&&!u.exhausted&&!isStunned(u)&&!isEvacuating(u)&&!u.hasMoved&&!(u.autoPath&&u.autoPath.length>0));
 }
@@ -2184,7 +2234,7 @@ function updateUI() {
       ЛКМ-драг = камера. Клик по дальнему = маршрут.<br>
       <b>XP только за убийства.</b><br>
       <b>ОРДА</b>: гоблины 2 хода, не бьют после движения.<br>
-      <b>Эвакуация</b> 🚪 (7,-5): 3 хода уязвимости → сохранить золото+вещи.<br>
+      <b>Эвакуация</b> 🚪 (7,-5): на точке — 2 хода, вдали — 5 ходов с автопоходением.<br>
       <b>Смерть</b>: только 25% золота, вещи потеряны.
     </div>`;
   }
@@ -2195,14 +2245,10 @@ function updateUI() {
     if (S.summonMode) html+=`<button class="summon-cancel" data-summon-mode="1">✖ Отменить</button>`;
     else if (S.mana>=cost) html+=`<button class="summon" data-summon-mode="1">✨ Адепт (${cost}💧)</button>`;
     else html+=`<button class="summon" disabled>✨ (${cost}💧 нужно)</button>`;
-    // Эвакуация
     if (S.hero&&!S.hero.evacuating) {
-      const heroPoi=poiAt(S.hero.q,S.hero.r);
-      if (heroPoi&&heroPoi.kind==='evacuation') {
-        html+=`<button class="evac" data-start-evac="1">🚪 Начать эвакуацию</button>`;
-      }
+      html+=`<button class="evac" data-start-evac="1">🚪 Эвакуация (${getEvacTurnsNeeded()})</button>`;
     } else if (S.hero&&S.hero.evacuating>0) {
-      html+=`<button disabled>🚪 Эвакуация: ${S.hero.evacuating}...</button>`;
+      html+=`<button disabled>🚪 Эвакуация: ${S.hero.evacuating}/${S.hero.evacTotal||getEvacTurnsNeeded()}...</button>`;
     }
   }
   if (selUnit&&!selUnit.isHero&&selUnit.type==='acolyte'&&!isAnimating&&canTrainAtBarracks(selUnit)) {
@@ -2232,7 +2278,6 @@ function updateUI() {
   document.getElementById('endTurn').disabled=S.gameOver||isAnimating;
 }
 
-// ========== INVENTORY ==========
 function getSlotByPath(p) {
   if (p.startsWith('equip:')) return {obj:S.inventory.equipment,key:p.slice(6)};
   if (p.startsWith('back:')) return {obj:S.inventory.backpack,key:parseInt(p.slice(5))};
@@ -2299,7 +2344,6 @@ function onInvHover(ev) {
 function onInvMove(ev){invTooltip.style.left=(ev.clientX+14)+'px';invTooltip.style.top=(ev.clientY+14)+'px';}
 function onInvLeave(){invTooltip.style.display='none';}
 
-// ========== TOOLTIPS ==========
 function showResourceTooltip(el,ev) {
   const isMana=el.id==='resMana';
   const items=incomeBreakdown().filter(it=>it.kind===(isMana?'mana':'gold'));
@@ -2331,7 +2375,6 @@ function showCombatTooltip(ev) {
   tooltip.style.left=(ev.clientX+14)+'px'; tooltip.style.top=(ev.clientY+14)+'px';
 }
 
-// ========== INPUT ==========
 function handleCanvasClick(ev) {
   if (!S||S.gameOver||isAnimating) return;
   const rect=cv.getBoundingClientRect();
@@ -2415,7 +2458,7 @@ cv.addEventListener('mousemove',ev=>{
   } else if (poi) {
     const info=POI_INFO[poi.kind];
     if (poi.kind==='evacuation') {
-      html=`<b>🚪 Точка эвакуации</b><br>Встань героем и нажми «Эвакуация».<br><span style="color:#8fa3bd;font-size:11px">3 хода уязвимости → сохранить всё.</span>`;
+      html=`<b>🚪 Точка эвакуации</b><br>Встань героем и нажми «Эвакуация».<br><span style="color:#8fa3bd;font-size:11px">На точке: 2 хода · Вдали: 5 ходов с автопоходжением.</span>`;
     } else {
       const g=S.enemies.find(e=>e.guard&&e.q===poi.q&&e.r===poi.r);
       const gs=g?(g.isBoss?'<span style="color:#ffd700">★ БОСС</span>':'<span style="color:#f87171">Охраняется</span>'):'<span style="color:#6ee7a0">Свободно</span>';
