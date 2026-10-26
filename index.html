@@ -110,6 +110,41 @@
   .loc-icon{font-size:40px;margin-bottom:8px}
   .loc-name{font-size:14px;font-weight:700;color:#cfe0f5;margin-bottom:6px}
   .loc-desc{font-size:11px;color:#8fa3bd}
+  .shop-card .rarity-tag{display:inline-block;font-size:9.5px;padding:2px 7px;border-radius:8px;margin-bottom:6px;font-weight:700}
+  .rarity-tag.r-unknown{background:#2a1530;color:#e08fff;border:1px solid #7a3a8a}
+  .rarity-tag.r-rare{background:#3a2a08;color:#ffd700;border:1px solid #8a6d1f}
+  .appraise-grid{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;min-height:64px}
+  .appraise-empty{color:#5a6b80;font-size:12px;padding:18px 0;text-align:center;width:100%}
+  .appraise-slot{width:58px;height:58px;background:#1a1410;border:1px solid #4a3a5a;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:30px;cursor:pointer;transition:border-color .15s,transform .15s}
+  .appraise-slot:hover{border-color:#e08fff;transform:translateY(-2px)}
+  .appraise-slot.sel{border-color:#ffd700;box-shadow:0 0 10px rgba(255,215,0,.5)}
+  .appraise-item-icon{filter:brightness(0);opacity:.85}
+  .appraise-btns{margin-top:12px;display:flex;gap:8px;justify-content:center}
+  .appraise-btns button{width:auto;padding:7px 16px;font-size:12px}
+  .btn-appraise{background:#3a1a5c;border-color:#a855f7;color:#e0c8ff}
+  .btn-appraise:hover:not(:disabled){background:#4a2474}
+  .btn-sell{background:#3a2a08;border-color:#8a6d1f;color:#ffd700}
+  .btn-sell:hover:not(:disabled){background:#4a3a10}
+  #identifyOverlay{position:fixed;inset:0;background:rgba(4,6,12,.88);z-index:100;display:none;align-items:center;justify-content:center}
+  #identifyOverlay.show{display:flex}
+  .id-box{text-align:center;padding:24px;position:relative}
+  .id-hint{color:#cfe0f5;font-size:13px;margin-bottom:14px;letter-spacing:.05em}
+  .id-stage{position:relative;width:300px;height:300px;margin:0 auto;border-radius:16px;overflow:hidden;touch-action:none;user-select:none;cursor:crosshair;background:radial-gradient(circle at 50% 45%,#241a34,#0d0a14 75%);border:2px solid #4a3a5a}
+  .id-real{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;z-index:1}
+  .id-real .big{font-size:110px;line-height:1;filter:drop-shadow(0 0 18px rgba(255,215,0,.35))}
+  .id-real .nm{font-size:20px;font-weight:800;color:#ffd700}
+  .id-real .ds{font-size:13px;color:#cfe0f5}
+  .id-real .rr{font-size:11px;color:#f0c040;font-weight:700}
+  .id-mask{position:absolute;inset:0;z-index:2}
+  .id-progress{margin-top:14px;height:8px;width:300px;margin-left:auto;margin-right:auto;background:#1a1424;border:1px solid #3a2a5a;border-radius:4px;overflow:hidden}
+  #idBar{height:100%;width:0%;background:linear-gradient(90deg,#a855f7,#ffd700);transition:width .1s linear}
+  .id-btns{margin-top:14px;display:flex;gap:10px;justify-content:center}
+  .id-btns button{width:auto;padding:8px 18px;font-size:13px}
+  .id-flash{position:absolute;inset:0;z-index:5;background:#fff;opacity:0;pointer-events:none;border-radius:16px}
+  .id-flash.go{animation:idFlash .9s ease-out forwards}
+  @keyframes idFlash{0%{opacity:0}12%{opacity:.95}100%{opacity:0}}
+  .id-reveal{animation:idPop .6s ease-out}
+  @keyframes idPop{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.12)}100%{transform:scale(1);opacity:1}}
   #invPanel{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#15110c;border:2px solid #3d2a18;border-radius:14px;padding:16px;display:none;z-index:50;max-width:640px;width:92vw;max-height:88vh;overflow-y:auto}
   #invPanel.open{display:block}
   .inv-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
@@ -158,6 +193,8 @@
     <div class="shop-title">🏗 Здания и улучшения</div>
     <div class="shop-grid" id="shopGrid"></div>
   </div>
+  <div class="shop-title" style="text-align:left;margin-bottom:12px">🔮 Опознание и продажа</div>
+  <div class="shop-section"><div class="appraise-grid" id="appraiseGrid"></div></div>
   <div class="shop-title" style="text-align:left;margin-bottom:12px">🗺 Локации</div>
   <div class="loc-grid" id="locGrid"></div>
   <button class="menu-btn" id="locBack" style="width:auto;padding:6px 14px;margin-top:14px;display:none">← В главное меню</button>
@@ -197,7 +234,19 @@
   <div class="inv-grid" id="invBackpack"></div>
   <div class="inv-section-title">Склад</div>
   <div class="inv-grid" id="invStash"></div>
+  <div class="inv-section-title">Продажа (только опознанное)</div>
+  <div class="inv-grid" id="invSell"></div>
 </div>
+<div id="identifyOverlay"><div class="id-box">
+  <div class="id-hint">Трите предмет «губкой», чтобы проявить его</div>
+  <div class="id-stage" id="idStage">
+    <div class="id-real" id="idReal"></div>
+    <canvas class="id-mask" id="idMask" width="300" height="300"></canvas>
+    <div class="id-flash" id="idFlashEl"></div>
+  </div>
+  <div class="id-progress"><div id="idBar"></div></div>
+  <div class="id-btns"><button id="idCancel">Отмена</button></div>
+</div></div>
 <div class="inv-tooltip" id="invTooltip"></div>
 <div id="levelUpModal"><div class="lum-box">
   <div class="lum-title">УРОВЕНЬ ПОВЫШЕН</div>
@@ -227,6 +276,7 @@ const GOLD_ZONES=new Set(['-2,1','1,1','3,0','-6,4','4,-6']);
 const COST_SUMMON=20, COST_UPGRADE=20, UPKEEP_PER_COMBAT=10;
 const MANA_ACOLYTE=5, MANA_ACOLYTE_BLUE=10;
 const GOLD_BASE=5, GOLD_ACOLYTE_ZONE=5, GOLD_PER_KILL=15, GOLD_PER_BOSS=100;
+const RES_VIS={gold:{icon:'⛏',glow:'#ffd700',halo:'rgba(255,205,60,',fill:'#3a2e08',stroke:'#c9a227'},mana:{icon:'🔮',glow:'#4fd8ff',halo:'rgba(80,210,255,',fill:'#0a2638',stroke:'#2fa8d8'}};
 const ROUND_LENGTH=20;
 const XP_KILL=15, XP_BOSS=250, XP_WARRIOR=25, XP_ARCHER=18, XP_KNIGHT=30, XP_ZOMBIE=20;
 const STUN_CHANCE=0.10, BOSS_CHANCE=0.20;
