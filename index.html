@@ -1357,27 +1357,61 @@ async function heroEvacWalkStep() {
   const h=S.hero;
   if (!h||h.hp<=0) return false;
   if (hexDist(h.q,h.r,EVAC_POS.q,EVAC_POS.r)<=1) return true;
-  if (h.movesLeft<=0) return false;
-  let best=null,bd=Infinity;
-  for (const [dq,dr] of DIRS) {
-    const nq=h.q+dq,nr=h.r+dr;
-    if (!inMap(nq,nr)) continue;
-    const ent=entityAt(nq,nr);
-    if (ent&&ent.kind==='unit') continue;
-    const d=hexDist(nq,nr,EVAC_POS.q,EVAC_POS.r);
-    if (d<bd||(d===bd&&best&&Math.random()<0.35)) {bd=d;best={q:nq,r:nr};}
+  // если герой уже израсходовал обычные ходы — один «шаг к отступному» за ход,
+  // иначе эвакуация зависает навсегда при блокировке/тупике
+  if (h.movesLeft<=0) {
+    if (h._evacFallbackUsed) return false;
+    h._evacFallbackUsed=true;
   }
-  if (!best) return false;
-  const blocked=entityAt(best.q,best.r);
+  // BFS до точки эвакуации: обходим юнитов, стоим только на врагах (прорываемся)
+  const prev=new Map();
+  const key=(q,r)=>q+','+r;
+  const startQ=h.q,startR=h.r;
+  const queue=[[startQ,startR]];
+  prev.set(key(startQ,startR),null);
+  let found=false;
+  while (queue.length&&!found) {
+    const [cq,cr]=queue.shift();
+    if (hexDist(cq,cr,EVAC_POS.q,EVAC_POS.r)<=1) {found=true;break;}
+    for (const [dq,dr] of DIRS) {
+      const nq=cq+dq,nr=cr+dr;
+      if (!inMap(nq,nr)) continue;
+      const k=key(nq,nr);
+      if (prev.has(k)) continue;
+      const ent=entityAt(nq,nr);
+      if (ent&&ent.kind==='unit') continue; // своих не протиснуться
+      prev.set(k,[cq,cr]);
+      queue.push([nq,nr]);
+    }
+  }
+  if (!found) return false;
+  // восстановить путь и взять первый шаг
+  let cur=null;
+  {
+    // первая досягаемая точка у двери
+    let node=null;
+    for (const k of prev.keys()) {
+      const [q,r]=k.split(',').map(Number);
+      if (hexDist(q,r,EVAC_POS.q,EVAC_POS.r)<=1) {node=[q,r];break;}
+    }
+    if (!node) return false;
+    const back=[];
+    while (node&&!(node[0]===startQ&&node[1]===startR)) { back.push(node); node=prev.get(key(node[0],node[1])); }
+    back.reverse();
+    cur=back[0];
+  }
+  if (!cur) return false;
+  const blocked=entityAt(cur[0],cur[1]);
   if (blocked&&blocked.kind==='enemy') {
     const dmg=Math.max(1,effectiveAtk(h)-blocked.ref.def);
     damageEnemy(blocked.ref,dmg,h);
     if (blocked.ref.hp<=0) onEnemyKilled(blocked.ref,h);
     return !S.gameOver;
   }
-  await animateStep(h,best.q,best.r);
-  h.movesLeft--; h.hasMoved=true;
-  return true;
+  await animateStep(h,cur[0],cur[1]);
+  h.movesLeft=Math.max(0,h.movesLeft-1); h.hasMoved=true;
+  checkPOI(h);
+  return !S.gameOver;
 }
 async function processAutoMoves() {
   for (const u of [...S.units]) {
@@ -1669,10 +1703,11 @@ async function doEndTurn() {
         }
       } else {
         // вдали от точки — герой сам идёт к ней (ходы движения не считаются ожиданием)
-        for (let i=0;i<h.movesLeft+1;i++) {
-          if (hexDist(h.q,h.r,EVAC_POS.q,EVAC_POS.r)<=1) break;
+        h._evacFallbackUsed=false;
+        let steps=0;
+        while (steps<24&&hexDist(h.q,h.r,EVAC_POS.q,EVAC_POS.r)>1&&!S.gameOver) {
           const ok=await heroEvacWalkStep();
-          if (S.gameOver) return;
+          steps++;
           if (!ok) break;
         }
         if (hexDist(h.q,h.r,EVAC_POS.q,EVAC_POS.r)<=1) {
