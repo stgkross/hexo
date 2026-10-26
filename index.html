@@ -288,7 +288,7 @@ const invTooltip=document.getElementById('invTooltip');
 
 let S=null, currentSlot=-1, currentLocation=1;
 let isAnimating=false, phase=null;
-let visualProj=[], slashes=[], floaters=[];
+let visualProj=[], slashes=[], floaters=[], fxAnims=[];
 let camX=0, camY=0;
 let mouseDownInfo=null, isDragging=false, dragSrcSlot=null;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -503,7 +503,7 @@ function loadGame(slotId) {
     if (!S.books) S.books=[];
     if (!S.shockZones) S.shockZones=[];
     for (const sid of Object.keys(SKILL_REGISTRY)) if (typeof S.hero.skillCDs[sid]!=='number') S.hero.skillCDs[sid]=0;
-    visualProj=[]; slashes=[]; floaters=[]; isAnimating=false; phase=null;
+    visualProj=[]; slashes=[]; fxAnims=[]; floaters=[]; isAnimating=false; phase=null;
     camX=0; camY=0; clampCamera();
     document.getElementById('startScreen').classList.add('hide');
     document.getElementById('locationScreen').classList.remove('show');
@@ -658,7 +658,7 @@ function newGame(meta) {
     pendingLevelUps:0,bossSpawned:false,
     gameOver:false,log:[],nextId:1
   };
-  visualProj=[]; slashes=[]; floaters=[]; isAnimating=false; phase=null;
+  visualProj=[]; slashes=[]; fxAnims=[]; floaters=[]; isAnimating=false; phase=null;
   camX=0; camY=0; clampCamera();
   document.getElementById('over').classList.remove('show');
   document.getElementById('invPanel').classList.remove('open');
@@ -982,9 +982,9 @@ function getDirection(q1,r1,q2,r2) {
   if (dq===0&&dr===0) return [0,0];
   let best=DIRS[0],bestDot=-Infinity;
   for (const [a,b] of DIRS) {
-    const len=Math.sqrt(dq*dq+dr*dr+dq*dr)||1;
+    const len=Math.sqrt(a*a+b*b+a*b)||1;
     const dot=(dq*a+dr*b)/len;
-    if (dot>bestDot) {bestDot=dot;best=a;}
+    if (dot>bestDot) {bestDot=dot;best=[a,b];}
   }
   return best;
 }
@@ -1003,15 +1003,57 @@ async function animateStep(ref,nq,nr) {
   await sleep(170);
   delete ref.animFrom; delete ref.animTo;
 }
-async function animateAttack(a,t) {
-  const from=getPos(a),to=getPos(t);
-  if (unitRange(a)>1) {
-    visualProj.push({x1:from.x,y1:from.y,x2:to.x,y2:to.y,startTime:performance.now(),duration:240});
-    await sleep(240);
-  } else {
-    slashes.push({x:to.x,y:to.y,startTime:performance.now(),duration:220});
-    await sleep(180);
+// ===== Модульные боевые анимации =====
+// Единая точка входа: getAttackStyle(unit) выбирает стиль по оружию/типу юнита,
+// spawnAttackFx(style,...) создаёт эффект, drawAttackFx(fx,t) рисует его в цикле отрисовки.
+// Чтобы добавить новую анимацию — добавь кейс в эти три функции, ничего больше менять не нужно.
+function getAttackStyle(u) {
+  if (u && u.isHero) {
+    const w=S.inventory&&S.inventory.equipment&&S.inventory.equipment.weaponL;
+    const kind=w?w.kind:null;
+    if (kind==='sword'||kind==='iron_sword'||kind==='dagger') return 'sword';
+    if (kind==='longbow') return 'bow';
+    if (kind==='necro_staff') return 'staff';
+    if (kind==='sling') return 'sling';
+    return unitRange(u)>1?'sling':'sword';
   }
+  if (u && u.type==='archer') return 'bow';
+  if (u && (u.type==='knight'||u.type==='brute')) return 'heavy';
+  return 'slash';
+}
+function spawnAttackFx(style,from,to,attacker) {
+  const now=performance.now();
+  if (style==='bow') {visualProj.push({x1:from.x,y1:from.y,x2:to.x,y2:to.y,startTime:now,duration:240});return 240;}
+  if (style==='sling') {fxAnims.push({type:'sling',x1:from.x,y1:from.y,x2:to.x,y2:to.y,startTime:now,duration:240});return 240;}
+  if (style==='staff') {fxAnims.push({type:'staff',x1:from.x,y1:from.y,x2:to.x,y2:to.y,startTime:now,duration:260});return 260;}
+  if (style==='sword') {slashes.push({x:to.x,y:to.y,startTime:now,duration:220,style:'sword',attacker});return 180;}
+  if (style==='heavy') {slashes.push({x:to.x,y:to.y,startTime:now,duration:260,style:'heavy',attacker});return 220;}
+  slashes.push({x:to.x,y:to.y,startTime:now,duration:220,style:'basic',attacker});
+  return 180;
+}
+function drawAttackFx(fx,t) {
+  const a=1-t;
+  if (fx.type==='sling') {
+    const x=fx.x1+(fx.x2-fx.x1)*t,y=fx.y1+(fx.y2-fx.y1)*t-Math.sin(Math.PI*t)*18;
+    ctx.beginPath(); ctx.arc(x,y,4,0,Math.PI*2);
+    ctx.fillStyle=`rgba(230,230,240,${a})`; ctx.fill();
+    ctx.strokeStyle=`rgba(160,170,190,${a})`; ctx.lineWidth=1.5; ctx.stroke();
+  } else if (fx.type==='staff') {
+    const ang=Math.atan2(fx.y2-fx.y1,fx.x2-fx.x1);
+    const x=fx.x1+(fx.x2-fx.x1)*t,y=fx.y1+(fx.y2-fx.y1)*t;
+    ctx.save(); ctx.translate(x,y); ctx.rotate(ang);
+    ctx.shadowColor='#b06aff'; ctx.shadowBlur=10;
+    ctx.strokeStyle=`rgba(176,106,255,${a})`; ctx.lineWidth=3; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(-12,0); ctx.lineTo(8,0); ctx.stroke();
+    ctx.beginPath(); ctx.arc(10,0,3.5,0,Math.PI*2);
+    ctx.fillStyle=`rgba(210,160,255,${a})`; ctx.fill();
+    ctx.restore();
+  }
+}
+async function animateAttack(a,t) {
+  const style=getAttackStyle(a);
+  const dur=spawnAttackFx(style,getPos(a),getPos(t),a);
+  await sleep(style==='sword'||style==='heavy'?dur-40:dur);
 }
 function damageUnit(u,dmg) {
   u.hp-=dmg;
@@ -1987,8 +2029,32 @@ function draw() {
   for (const sl of slashes) {
     const t2=Math.min(1,(performance.now()-sl.startTime)/sl.duration);
     const a=1-t2;
-    ctx.strokeStyle=`rgba(255,120,120,${a})`; ctx.lineWidth=3;
-    ctx.beginPath(); ctx.arc(sl.x,sl.y,SIZE*(0.3+0.7*t2),0,Math.PI*2); ctx.stroke();
+    const st=sl.style||'basic';
+    if (st==='sword') {
+      // Дугообразный росчерк клинка от атакующего к цели
+      const from=getPos(sl.attacker),to={x:sl.x,y:sl.y};
+      const ang=Math.atan2(to.y-from.y,to.x-from.x);
+      const R=SIZE*0.95;
+      const spread=1.15*(0.3+0.7*t2);
+      ctx.save();
+      ctx.strokeStyle=`rgba(220,240,255,${a})`; ctx.lineWidth=3.5; ctx.lineCap='round';
+      ctx.shadowColor='#bfe3ff'; ctx.shadowBlur=8;
+      ctx.beginPath(); ctx.arc(from.x,from.y,R,ang-spread,ang+spread); ctx.stroke();
+      ctx.strokeStyle=`rgba(120,180,255,${a*0.5})`; ctx.lineWidth=7;
+      ctx.beginPath(); ctx.arc(from.x,from.y,R,ang-spread*0.6,ang+spread*0.6); ctx.stroke();
+      ctx.restore();
+    } else if (st==='heavy') {
+      ctx.strokeStyle=`rgba(255,150,80,${a})`; ctx.lineWidth=5;
+      ctx.beginPath(); ctx.arc(sl.x,sl.y,SIZE*(0.3+0.7*t2),0,Math.PI*2); ctx.stroke();
+      ctx.strokeStyle=`rgba(255,90,40,${a*0.6})`; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.arc(sl.x,sl.y,SIZE*(0.15+0.55*t2),0,Math.PI*2); ctx.stroke();
+    } else {
+      ctx.strokeStyle=`rgba(255,120,120,${a})`; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.arc(sl.x,sl.y,SIZE*(0.3+0.7*t2),0,Math.PI*2); ctx.stroke();
+    }
+  }
+  for (const fx of fxAnims) {
+    drawAttackFx(fx,Math.min(1,(performance.now()-fx.startTime)/fx.duration));
   }
   for (const f of floaters) {
     const a=Math.min(1,f.life/0.4);
