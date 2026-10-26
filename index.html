@@ -274,8 +274,8 @@ const KNIGHT_DIRS=[[2,-1],[1,-2],[-1,-2],[-2,-1],[-2,1],[-1,2],[1,2],[2,1]];
 const BLUE_ZONES=new Set(['2,-1','-1,2','0,-3','5,2','-4,-4']);
 const GOLD_ZONES=new Set(['-2,1','1,1','3,0','-6,4','4,-6']);
 const COST_SUMMON=20, COST_UPGRADE=20, UPKEEP_PER_COMBAT=10;
-const MANA_ACOLYTE=5, MANA_ACOLYTE_BLUE=10;
-const GOLD_BASE=5, GOLD_ACOLYTE_ZONE=5, GOLD_PER_KILL=15, GOLD_PER_BOSS=100;
+const ZONE_MANA_BONUS=5, ZONE_GOLD_BONUS=5, ZONE_ATK_DEBUFF=2, ZONE_DEF_DEBUFF=2;
+const GOLD_BASE=5, GOLD_PER_KILL=15, GOLD_PER_BOSS=100;
 const RES_VIS={gold:{icon:'⛏',glow:'#ffd700',halo:'rgba(255,205,60,',fill:'#3a2e08',stroke:'#c9a227'},mana:{icon:'🔮',glow:'#4fd8ff',halo:'rgba(80,210,255,',fill:'#0a2638',stroke:'#2fa8d8'}};
 const ROUND_LENGTH=20;
 const XP_KILL=15, XP_BOSS=250, XP_WARRIOR=25, XP_ARCHER=18, XP_KNIGHT=30, XP_ZOMBIE=20;
@@ -291,7 +291,8 @@ function defaultMeta() {
     inventory:{ equipment:{helmet:null,amulet:null,chest:null,weaponL:null,weaponR:null,ring:null,boots:null}, backpack:Array(20).fill(null), stash:Array(10).fill(null) },
     buildings:{barracks:0,archery:0,cavalry:0},
     forge:{atk:0,def:0},
-    runsCompleted:0
+    runsCompleted:0,
+    unknown:[]
   };
 }
 function normalizeMeta(meta) {
@@ -303,6 +304,7 @@ function normalizeMeta(meta) {
   if (typeof meta.forge.atk!=='number') meta.forge.atk=0;
   if (typeof meta.forge.def!=='number') meta.forge.def=0;
   if (typeof meta.runsCompleted!=='number') meta.runsCompleted=0;
+  if (!Array.isArray(meta.unknown)) meta.unknown=[];
   if (!meta.inventory||typeof meta.inventory!=='object') meta.inventory=defaultMeta().inventory;
   if (!meta.inventory.equipment||typeof meta.inventory.equipment!=='object') meta.inventory.equipment={helmet:null,amulet:null,chest:null,weaponL:null,weaponR:null,ring:null,boots:null};
   for (const k of ['helmet','amulet','chest','weaponL','weaponR','ring','boots']) if (!(k in meta.inventory.equipment)) meta.inventory.equipment[k]=null;
@@ -850,8 +852,6 @@ function hexRound(q,r){let s=-q-r,rq=Math.round(q),rr=Math.round(r),rs=Math.roun
 function isHexVisible(q,r){const p=hexToPixel(q,r);return p.x>-SIZE*2&&p.x<W+SIZE*2&&p.y>-SIZE*2&&p.y<H+SIZE*2;}
 function terrainAt(q,r){return TERRAIN.get(key(q,r))||null;}
 function terrainBonus(q,r){const m=terrainAt(q,r);if(m==='atk')return {atk:2,def:0};if(m==='def')return {atk:0,def:2};if(m==='curse')return {atk:1,def:-2};return {atk:0,def:0};}
-function effectiveAtk(u){if(!u)return 0;let a=u.atk+terrainBonus(u.q,u.r).atk;if(!u.isHero)a+=S.armyAtkBonus||0;return a;}
-function effectiveDef(u){if(!u)return 0;let d=u.def+terrainBonus(u.q,u.r).def;if(!u.isHero)d+=S.armyDefBonus||0;return d;}
 function unitRange(u) {
   if (!u) return 1;
   if (u.isHero) return (u.weaponRange||2)+(u.rangeBonus||0);
@@ -896,32 +896,30 @@ function incomeBreakdown() {
   const hb=(S.hero?S.hero.manaBonus:0)+(S.hero?(S.hero.equipManaBonus||0):0);
   if (hb>0) items.push({label:'🧙 Бонус экип',value:hb,kind:'mana'});
   for (const u of S.units) {
-    if (u.isHero||u.type!=='acolyte'||u.hasMoved) continue;
-    const k=key(u.q,u.r);
-    if (GOLD_ZONES.has(k)) items.push({label:'👤 Адепт (зол.)',value:GOLD_ACOLYTE_ZONE,kind:'gold'});
-    else if (BLUE_ZONES.has(k)) items.push({label:'👤 Адепт (син.)',value:MANA_ACOLYTE_BLUE,kind:'mana'});
-    else items.push({label:'👤 Адепт',value:MANA_ACOLYTE,kind:'mana'});
+    if (u.isHero||!zoneAt(u.q,u.r)) continue;
+    const z=zoneAt(u.q,u.r);
+    items.push({label:`${z.icon} ${z.name} (${UNIT_LABEL(u)})`,value:z.amount,kind:z.type});
   }
   items.push({label:'💰 Базовый',value:GOLD_BASE,kind:'gold'});
   if (S.goldBonus>0) items.push({label:'🪙 Золотая жила',value:S.goldBonus,kind:'gold'});
-  for (const u of S.units) if (!u.isHero&&['warrior','archer','knight','brute'].includes(u.type))
-    items.push({label:`⚔ ${UNIT_TYPES[u.type].name}`,value:-UPKEEP_PER_COMBAT,kind:'mana'});
   return items;
 }
 function computeIncome() {
   let mana=HERO_TEMPLATE.manaPerTurn+(S.hero?S.hero.manaBonus+(S.hero.equipManaBonus||0):0);
   let gold=GOLD_BASE+(S.goldBonus||0);
   for (const u of S.units) {
-    if (u.isHero||u.type!=='acolyte'||u.hasMoved) continue;
-    const k=key(u.q,u.r);
-    if (GOLD_ZONES.has(k)) gold+=GOLD_ACOLYTE_ZONE;
-    else if (BLUE_ZONES.has(k)) mana+=MANA_ACOLYTE_BLUE;
-    else mana+=MANA_ACOLYTE;
+    if (u.isHero) continue;
+    const z=zoneAt(u.q,u.r);
+    if (!z) continue;
+    if (z.type==='gold') gold+=z.amount; else mana+=z.amount;
   }
   return {mana,gold};
 }
-function computeUpkeep() {let up=0;for (const u of S.units) if (!u.isHero&&['warrior','archer','knight','brute'].includes(u.type)) up+=UPKEEP_PER_COMBAT;return up;}
-function acolyteGen(u) {const k=key(u.q,u.r);if(GOLD_ZONES.has(k))return {type:'gold',amount:GOLD_ACOLYTE_ZONE,active:!u.hasMoved};if(BLUE_ZONES.has(k))return {type:'mana',amount:MANA_ACOLYTE_BLUE,active:!u.hasMoved};return {type:'mana',amount:MANA_ACOLYTE,active:!u.hasMoved};}
+function UNIT_LABEL(u){return u.isHero?HERO_TEMPLATE.name:(UNIT_TYPES[u.type]||{name:'Юнит'}).name;}
+function zoneAt(q,r){const k=key(q,r);if(BLUE_ZONES.has(k))return {type:'mana',amount:ZONE_MANA_BONUS,icon:'🔮',name:'Мана-круг',debuff:`−${ZONE_ATK_DEBUFF} атк / −${ZONE_DEF_DEBUFF} защ`};if(GOLD_ZONES.has(k))return {type:'gold',amount:ZONE_GOLD_BONUS,icon:'⛏',name:'Шахта',debuff:`−${ZONE_ATK_DEBUFF} атк / −${ZONE_DEF_DEBUFF} защ`};return null;}
+function zoneDebuff(q,r){return zoneAt(q,r)?{atk:-ZONE_ATK_DEBUFF,def:-ZONE_DEF_DEBUFF}:{atk:0,def:0};}
+function effectiveAtk(u){if(!u)return 0;let a=u.atk+terrainBonus(u.q,u.r).atk+zoneDebuff(u.q,u.r).atk;if(!u.isHero)a+=S.armyAtkBonus||0;return Math.max(1,a);}
+function effectiveDef(u){if(!u)return 0;let d=u.def+terrainBonus(u.q,u.r).def+zoneDebuff(u.q,u.r).def;if(!u.isHero)d+=S.armyDefBonus||0;return Math.max(0,d);}
 
 function summon(q,r) {
   const cost=getSummonCost();
@@ -1666,15 +1664,6 @@ function applyRegen() {
 function applyIncomeAndUpkeep() {
   const inc=computeIncome();
   S.mana+=inc.mana; S.gold+=inc.gold;
-  for (const u of [...S.units]) {
-    if (u.isHero||!['warrior','archer','knight','brute'].includes(u.type)) continue;
-    if (S.mana>=UPKEEP_PER_COMBAT) S.mana-=UPKEEP_PER_COMBAT;
-    else {
-      u.hp-=10;
-      addLog(`${UNIT_TYPES[u.type].name} голодает: −10 HP.`,true);
-      if (u.hp<=0) {S.units=S.units.filter(x=>x.id!==u.id);addLog(`${UNIT_TYPES[u.type].name} погиб.`);}
-    }
-  }
 }
 function spawnPoi() {
   const kinds=['chest','chest','chest','camp','ruin','shrine','pandora'];
@@ -2004,11 +1993,30 @@ function draw() {
     const terr=terrainAt(h.q,h.r);
     let fill='#141d2b',stroke='#222f44';
     if (terr) {const ti=TERRAIN_INFO[terr];fill=ti.fill;stroke=ti.stroke;}
-    if (BLUE_ZONES.has(k)) {fill='#0e2438';stroke='#1e5a8a';}
-    if (GOLD_ZONES.has(k)) {fill='#2a2410';stroke='#7a6020';}
+    const hz=zoneAt(h.q,h.r);
+    if (hz) {const rv=RES_VIS[hz.type];fill=rv.fill;stroke=rv.stroke;}
     if (summonHexes.has(k)) {fill='#12304a';stroke='#3f8fc0';}
     if (moveHexes.has(k)) {fill='#132a1c';stroke='#3f8a55';}
     drawHex(x,y,SIZE-1,fill,stroke);
+    if (hz&&!entityAt(h.q,h.r)) {
+      const rv=RES_VIS[hz.type];
+      const pulse=0.5+0.5*Math.sin(t*3+(h.q+h.r));
+      const grad=ctx.createRadialGradient(x,y,SIZE*0.1,x,y,SIZE*0.95);
+      grad.addColorStop(0,rv.halo+'0.4)');
+      grad.addColorStop(1,rv.halo+'0)');
+      ctx.fillStyle=grad;
+      ctx.beginPath(); ctx.arc(x,y,SIZE*0.95,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle=rv.glow; ctx.lineWidth=2.5;
+      ctx.beginPath(); ctx.arc(x,y,SIZE*(0.72+0.06*pulse),0,Math.PI*2); ctx.stroke();
+      ctx.globalAlpha=0.9;
+      ctx.font=`bold ${Math.floor(SIZE*0.62)}px system-ui`;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(rv.icon,x,y);
+      ctx.globalAlpha=1;
+      ctx.font='bold 10px system-ui';
+      ctx.fillStyle=rv.glow;
+      ctx.fillText((hz.type==='gold'?'+':'+')+hz.amount+(hz.type==='gold'?'🪙':'💧'),x,y+SIZE*0.62);
+    }
     if (terr) {
       const ti=TERRAIN_INFO[terr];
       ctx.globalAlpha=0.7+0.25*Math.sin(t*2.5+(h.q+h.r)*0.5);
@@ -2098,10 +2106,26 @@ function draw() {
     ctx.stroke();
     drawUnitIcon(u.type,pos,false);
     const k=key(u.q,u.r);
-    if (u.type==='acolyte'&&(BLUE_ZONES.has(k)||GOLD_ZONES.has(k))&&!u.hasMoved&&!inactive) {
-      ctx.strokeStyle=BLUE_ZONES.has(k)?'#8fd0ff':'#f0c040'; ctx.lineWidth=2.2;
-      const pr=0.6+0.06*Math.sin(t*5);
-      ctx.beginPath(); ctx.arc(pos.x,pos.y,SIZE*pr,0,Math.PI*2); ctx.stroke();
+    const uz=zoneAt(u.q,u.r);
+    if (uz) {
+      const rv=RES_VIS[uz.type];
+      const pulse=0.5+0.5*Math.sin(t*4+(u.id||0));
+      const grad=ctx.createRadialGradient(pos.x,pos.y,SIZE*0.2,pos.x,pos.y,SIZE*1.05);
+      grad.addColorStop(0,rv.halo+'0.55)');
+      grad.addColorStop(0.7,rv.halo+(0.25+0.2*pulse)+')');
+      grad.addColorStop(1,rv.halo+'0)');
+      ctx.fillStyle=grad;
+      ctx.beginPath(); ctx.arc(pos.x,pos.y,SIZE*1.05,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle=rv.glow; ctx.lineWidth=3;
+      ctx.beginPath(); ctx.arc(pos.x,pos.y,SIZE*(0.68+0.05*pulse),0,Math.PI*2); ctx.stroke();
+      ctx.lineWidth=1.2; ctx.setLineDash([4,3]);
+      ctx.beginPath(); ctx.arc(pos.x,pos.y,SIZE*0.82,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
+      ctx.font=`bold ${Math.floor(SIZE*0.5)}px system-ui`;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(uz.icon,pos.x-SIZE*0.52,pos.y-SIZE*0.52);
+      ctx.font='bold 9px system-ui';
+      ctx.fillStyle='#ff6b6b';
+      ctx.fillText('−2⚔ −2🛡',pos.x,pos.y+SIZE*0.86);
     }
     if (unitOnBarracks(u)) {
       ctx.strokeStyle='#ffd700'; ctx.lineWidth=1.5; ctx.setLineDash([3,3]);
@@ -2113,10 +2137,6 @@ function draw() {
     else if (!u.hasMoved) drawReadyIcon(pos.x,pos.y);
     if (u.isHero) drawLevelBadge(pos.x,pos.y,u.level);
     drawHpBar(pos.x,pos.y-SIZE*.78,SIZE*.9,u.hp/u.maxHp);
-    if (u.type==='acolyte') {
-      const gen=acolyteGen(u);
-      drawGenIcon(pos.x,pos.y,gen.type,gen.amount,!gen.active);
-    }
     if (u.isHero) {
       const total=HERO_TEMPLATE.manaPerTurn+u.manaBonus+(u.equipManaBonus||0);
       ctx.fillStyle='#cfe0f5'; ctx.font='bold 9px system-ui';
