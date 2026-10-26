@@ -618,6 +618,12 @@ function loadGame(slotId) {
     if (!S.hero.skills) S.hero.skills={};
     if (!S.hero.skillCDs) S.hero.skillCDs={};
     if (!S.hero.evolutions) S.hero.evolutions=[];
+    if (S.hero.evacuating>0&&S.hero.evacAtDoor===undefined) {
+      // миграция старых сохранений: evacArrivedLogged -> evacAtDoor
+      S.hero.evacAtDoor=!!S.hero.evacArrivedLogged||hexDist(S.hero.q,S.hero.r,EVAC_POS.q,EVAC_POS.r)<=1;
+      if (S.hero.evacAtDoor) {S.hero.evacuating=2;S.hero.evacTotal=2;}
+      delete S.hero.evacArrivedLogged;
+    }
     if (!S.projectiles) S.projectiles=[];
     if (!S.zones) S.zones=[];
     if (!S.books) S.books=[];
@@ -1651,19 +1657,33 @@ async function doEndTurn() {
     if (S.gameOver) return;
     if (S.hero&&S.hero.evacuating>0) {
       const h=S.hero;
-      let arrived=false;
-      for (let i=0;i<h.movesLeft+1;i++) {
-        if (hexDist(h.q,h.r,EVAC_POS.q,EVAC_POS.r)<=1) {arrived=true;break;}
-        const ok=await heroEvacWalkStep();
-        if (S.gameOver) return;
-        if (!ok) break;
+      // Таймер эвакуации тикает ТОЛЬКО когда герой стоит на точке (или в радиусе 1).
+      // Фаза движения лишь доводит героя до точки и НЕ списывает ходы ожидания.
+      if (hexDist(h.q,h.r,EVAC_POS.q,EVAC_POS.r)<=1) {
+        if (!h.evacAtDoor) {
+          h.evacAtDoor=true;
+          h.evacuating=2; h.evacTotal=2;
+          addLog('🚪 Герой на точке эвакуации: 2 хода ожидания.',true);
+        } else {
+          h.evacuating--;
+        }
+      } else {
+        // вдали от точки — герой сам идёт к ней (ходы движения не считаются ожиданием)
+        for (let i=0;i<h.movesLeft+1;i++) {
+          if (hexDist(h.q,h.r,EVAC_POS.q,EVAC_POS.r)<=1) break;
+          const ok=await heroEvacWalkStep();
+          if (S.gameOver) return;
+          if (!ok) break;
+        }
+        if (hexDist(h.q,h.r,EVAC_POS.q,EVAC_POS.r)<=1) {
+          h.evacAtDoor=true;
+          h.evacuating=2; h.evacTotal=2;
+          addLog('🚪 Герой дошёл до точки эвакуации: 2 хода ожидания.',true);
+        } else {
+          addLog(`🚪 Эвакуация: герой ещё не у точки (${hexDist(h.q,h.r,EVAC_POS.q,EVAC_POS.r)} гексов).`,true);
+        }
       }
-      if (arrived||hexDist(h.q,h.r,EVAC_POS.q,EVAC_POS.r)<=1) {
-        h.evacuating=2;
-        h.evacTotal=2;
-        if (!h.evacArrivedLogged) {h.evacArrivedLogged=true;addLog('🚪 Герой на точке эвакуации: 2 хода.',true);}
-      }
-      h.evacuating--;
+      // гарантия завершения: как только счётчик дошёл до 0 — эвакуация завершается сразу
       if (h.evacuating<=0) {await completeEvacuation();return;}
       addLog(`🚪 Эвакуация: осталось ${h.evacuating} ход.`,true);
     }
