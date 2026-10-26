@@ -1,0 +1,2460 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hex Tactics — v16</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;padding:14px;background:radial-gradient(1200px 700px at 15% -10%,#1a2a4a 0%,transparent 60%),radial-gradient(900px 600px at 90% 110%,#2a1a3a 0%,transparent 55%),radial-gradient(1400px 900px at 50% 50%,#0d1420 0%,#06090f 70%);color:#dbe4f0;font-family:system-ui,sans-serif;display:flex;align-items:flex-start;justify-content:center;min-height:100vh}
+  #app{display:none;gap:16px;align-items:flex-start;flex-wrap:wrap;justify-content:center}
+  #app.open{display:flex}
+  #board{background:#0a0f18;border-radius:16px;padding:6px;box-shadow:inset 0 0 0 1px #1b2534,0 30px 80px rgba(0,0,0,.75)}
+  canvas{display:block;border-radius:12px;touch-action:none;cursor:grab;user-select:none}
+  canvas.grabbing{cursor:grabbing!important}
+  canvas.pointer{cursor:pointer!important}
+  #side{width:320px;display:flex;flex-direction:column;gap:10px}
+  h1{font-size:11px;letter-spacing:.18em;text-transform:uppercase;margin:0;color:#6f8199;font-weight:600}
+  .panel{background:linear-gradient(180deg,#101826,#0b121c);border:1px solid #1e2a3a;border-radius:12px;padding:11px;font-size:12.5px;line-height:1.5}
+  .res-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px}
+  .res{display:flex;justify-content:space-between;gap:6px;font-size:12px;color:#8fa3bd;align-items:baseline;cursor:help}
+  .res b{color:#e8f0fb;font-weight:600}
+  .res .delta{font-size:11px;margin-left:4px;font-weight:600}
+  .res .delta.pos{color:#6ee7a0}
+  .res .delta.neg{color:#f87171}
+  .hint{color:#6f8199;font-size:12px;line-height:1.6}
+  .card-title{font-weight:700;color:#cfe0f5;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+  .dot{width:10px;height:10px;border-radius:50%;display:inline-block;box-shadow:0 0 8px currentColor}
+  .stat-row{display:flex;justify-content:space-between;color:#8fa3bd}
+  .stat-row b{color:#e8f0fb}
+  .xp-track{height:5px;background:#0a1119;border-radius:3px;margin-top:4px;overflow:hidden}
+  .xp-fill{height:100%;background:linear-gradient(90deg,#a37c0f,#ffd700);transition:width .3s}
+  .skill-pill{display:inline-flex;align-items:center;gap:4px;background:#0a1220;border:1px solid #2a3a52;border-radius:6px;padding:2px 6px;font-size:10.5px;color:#cfe0f5;margin:1px}
+  .skill-pill.maxed{border-color:#ffd700;color:#ffd700}
+  .skill-pill.evo{border-color:#a855f7;color:#d0a0f0;background:#1a0e2a}
+  button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid #2a3a52;background:linear-gradient(180deg,#1c2a40,#131d2c);color:#cfe0f5;padding:9px 12px;transition:.15s;width:100%;font-weight:500}
+  button:hover:not(:disabled){background:linear-gradient(180deg,#22334d,#172438);border-color:#3c5480;transform:translateY(-1px)}
+  button.train{background:linear-gradient(180deg,#3a2416,#241508);border-color:#7a4a20;color:#f0b07a}
+  button.summon{background:linear-gradient(180deg,#15304a,#0c1e2e);border-color:#1e5a8a;color:#8fd0ff}
+  button.summon-cancel{background:linear-gradient(180deg,#3a1220,#241016);border-color:#8a2f4a;color:#f0a0c0}
+  button.inv{background:linear-gradient(180deg,#2a1a3a,#1a1024);border-color:#5a3a7a;color:#d0a0f0}
+  button.hold{background:linear-gradient(180deg,#22323a,#16202a);border-color:#3a5a6a;color:#a0c0e0}
+  button.hold.active{background:linear-gradient(180deg,#1a4a3a,#0e2a22);border-color:#2f9a6a;color:#7ae6a4}
+  button.cancel-auto{background:linear-gradient(180deg,#3a2210,#241408);border-color:#8a5a20;color:#f0c080}
+  button.evac{background:linear-gradient(180deg,#1a4a2a,#0c2a12);border-color:#3a9a4a;color:#7ae6a4;font-weight:600}
+  button#endTurn{background:linear-gradient(180deg,#2050a0,#153463);border-color:#2f6ab5;font-weight:600;padding:13px;font-size:14px}
+  button#notifyBtn{background:linear-gradient(180deg,#3a2a1a,#241808);border-color:#8a6a30;color:#ffd97a}
+  button#combatBtn{background:linear-gradient(180deg,#3a1414,#241010);border-color:#8a2020;color:#ffa0a0}
+  button.menu-btn{background:#1a1024;border-color:#5a3a7a;color:#d0a0f0;font-size:11px;padding:6px}
+  button:disabled{opacity:.35;cursor:not-allowed}
+  #actions{display:flex;flex-direction:column;gap:6px}
+  #actions:empty{display:none}
+  #log{height:100px;overflow-y:auto;font-size:11.5px;line-height:1.65;color:#7f93ad;scrollbar-width:thin}
+  #log div{padding:1px 0;border-bottom:1px solid rgba(255,255,255,.02)}
+  #log .hl{color:#cfe0f5}
+  #log .lvl{color:#ffd700}
+  #log .abl{color:#ff9f43}
+  #log .evo{color:#d0a0f0}
+  #over{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(5,8,14,.92);backdrop-filter:blur(6px);z-index:10}
+  #over.show{display:flex}
+  #over .box{background:#101826;border:1px solid #24344a;border-radius:18px;padding:30px 36px;text-align:center;max-width:440px}
+  #over h2{margin:0 0 8px;color:#ffd700}
+  #over h2.lose{color:#f87171}
+  #over p{color:#8fa3bd;font-size:13px;margin-bottom:20px;line-height:1.7}
+  #tooltip{position:fixed;display:none;pointer-events:none;background:#0e1620;border:1px solid #2a3a52;border-radius:10px;padding:9px 12px;font-size:12px;color:#dbe4f0;line-height:1.55;z-index:100;max-width:260px}
+  #tooltip b{color:#cfe0f5}
+  #tooltip .tt-row{display:flex;justify-content:space-between;gap:14px}
+  #tooltip .tt-pos{color:#6ee7a0}
+  #tooltip .tt-neg{color:#f87171}
+  #startScreen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(900px 700px at 50% 40%,#1a2a4a 0%,#06090f 70%);z-index:80}
+  #startScreen.hide{display:none}
+  .start-box{max-width:640px;width:92vw;padding:40px 30px;text-align:center}
+  .start-title{font-size:36px;font-weight:900;letter-spacing:.16em;color:#ffd700;margin-bottom:8px}
+  .start-sub{font-size:13px;color:#8fa3bd;margin-bottom:30px}
+  .slots{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .slot{background:#101826;border:2px solid #24344a;border-radius:14px;padding:16px;text-align:center}
+  .slot.occupied{border-color:#8a6a30}
+  .slot.active-run{border-color:#3a9a4a}
+  .slot-num{font-size:11px;color:#6f8199}
+  .slot-info{font-size:13px;color:#cfe0f5;font-weight:600;margin:10px 0 6px}
+  .slot-meta{font-size:11px;color:#8fa3bd;margin-bottom:12px;min-height:32px}
+  .slot-meta .gold{color:#ffd700}
+  .slot button{margin-top:6px;font-size:12px;padding:7px}
+  .slot-delete{background:#3a1220;border-color:#8a2f4a;color:#f0a0c0}
+  .slot-continue{background:#2050a0;border-color:#2f6ab5;color:#8fd0ff}
+  .slot-new{background:#1a4a2a;border-color:#2f8a4a;color:#7ae6a4}
+  #locationScreen{position:fixed;inset:0;display:none;align-items:flex-start;justify-content:center;background:rgba(5,8,14,.95);backdrop-filter:blur(6px);z-index:81;overflow-y:auto;padding:30px 0}
+  #locationScreen.show{display:flex}
+  .loc-box{max-width:900px;width:92vw;padding:20px;text-align:center}
+  .loc-title{font-size:22px;color:#ffd700;margin-bottom:8px}
+  .loc-sub{font-size:12px;color:#8fa3bd;margin-bottom:20px}
+  .meta-gold{font-size:20px;color:#ffd700;margin-bottom:20px;font-weight:700}
+  .shop-section{background:#0e1520;border:1px solid #24344a;border-radius:12px;padding:16px;margin-bottom:20px}
+  .shop-title{font-size:13px;color:#cfe0f5;text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px;text-align:left}
+  .shop-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+  .shop-card{background:#1a1424;border:1px solid #3a2a5a;border-radius:10px;padding:12px 8px;text-align:center;font-size:11px}
+  .shop-card .shop-icon{font-size:26px;margin-bottom:4px}
+  .shop-card .shop-name{color:#ffd700;font-weight:700;font-size:11.5px;margin-bottom:4px}
+  .shop-card .shop-desc{color:#8fa3bd;font-size:10.5px;margin-bottom:6px;min-height:28px}
+  .shop-card .shop-lvl{color:#6f8199;font-size:10px;margin-bottom:8px}
+  .shop-card button{font-size:11px;padding:6px 4px}
+  .loc-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .loc-card{background:#101826;border:2px solid #24344a;border-radius:14px;padding:20px 12px;cursor:pointer}
+  .loc-card:hover:not(.locked){border-color:#ffd700;transform:translateY(-2px)}
+  .loc-card.locked{opacity:.4;cursor:not-allowed}
+  .loc-icon{font-size:40px;margin-bottom:8px}
+  .loc-name{font-size:14px;font-weight:700;color:#cfe0f5;margin-bottom:6px}
+  .loc-desc{font-size:11px;color:#8fa3bd}
+  #invPanel{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#15110c;border:2px solid #3d2a18;border-radius:14px;padding:16px;display:none;z-index:50;max-width:640px;width:92vw;max-height:88vh;overflow-y:auto}
+  #invPanel.open{display:block}
+  .inv-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+  .inv-header h2{margin:0;font-size:16px;color:#e8d5a0}
+  .inv-header button{width:auto;padding:4px 14px;background:#3a2010;border-color:#8a4a20;color:#e0b080}
+  .inv-section-title{font-size:11px;color:#8a7a5a;margin:10px 0 6px;font-weight:600}
+  .inv-equip,.inv-grid{display:grid;gap:6px;padding:10px;background:rgba(0,0,0,.35);border-radius:8px;border:1px solid #2a1e10}
+  .inv-equip{grid-template-columns:repeat(7,1fr)}
+  .inv-grid{grid-template-columns:repeat(5,1fr)}
+  .inv-slot{aspect-ratio:1;background:#1a1410;border:1px solid #3a2a1a;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:20px;position:relative;cursor:grab}
+  .inv-slot:hover{border-color:#7a5a30}
+  .inv-slot.equip{background:#2a1e10;border-color:#4a3a1a}
+  .inv-slot.dragover{border-color:#ffd700}
+  .inv-slot .empty-hint{color:#3a2a1a;font-size:10px}
+  .inv-slot .slot-label{position:absolute;bottom:2px;right:3px;font-size:8px;color:#5a4a2a}
+  .inv-slot.dragging{opacity:.4}
+  .inv-tooltip{position:fixed;pointer-events:none;background:#0a0805;border:1px solid #7a5a30;border-radius:6px;padding:6px 10px;font-size:11.5px;color:#e8d5a0;z-index:200;display:none}
+  .inv-tooltip b{color:#ffd700}
+  #levelUpModal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(5,8,14,.94);z-index:60}
+  #levelUpModal.show{display:flex}
+  .lum-box{text-align:center;max-width:840px;padding:20px}
+  .lum-title{font-size:26px;color:#ffd700;margin-bottom:6px}
+  .lum-sub{font-size:13px;color:#8fa3bd;margin-bottom:24px}
+  .lum-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .lum-card{background:#1a1424;border:2px solid #3a2a5a;border-radius:14px;padding:18px 14px;cursor:pointer;text-align:center;position:relative}
+  .lum-card:hover{border-color:#ffd700}
+  .lum-card.evo{border-color:#a855f7;background:#2a0e3a}
+  .lum-card.new-skill{border-color:#3a6a8a}
+  .lum-card .icon{font-size:42px;margin-bottom:10px;display:block}
+  .lum-card .name{font-size:14px;font-weight:700;color:#ffd700;margin-bottom:6px}
+  .lum-card .desc{font-size:12px;color:#8fa3bd;line-height:1.5}
+  .lum-card .lvl-badge{position:absolute;top:6px;right:8px;font-size:10px;color:#8fa3bd;background:#0a1220;padding:2px 6px;border-radius:4px;border:1px solid #2a3a52}
+</style>
+</head>
+<body>
+<div id="startScreen"><div class="start-box">
+  <div class="start-title">HEX TACTICS</div>
+  <div class="start-sub">Орда · Тактическая роглайт · v16</div>
+  <div class="slots" id="slots"></div>
+</div></div>
+<div id="locationScreen"><div class="loc-box">
+  <div class="loc-title">Подготовка</div>
+  <div class="loc-sub">Потратьте мета-золото перед забегом</div>
+  <div class="meta-gold" id="metaGold">🪙 0</div>
+  <div class="shop-section">
+    <div class="shop-title">🏗 Здания и улучшения</div>
+    <div class="shop-grid" id="shopGrid"></div>
+  </div>
+  <div class="shop-title" style="text-align:left;margin-bottom:12px">🗺 Локации</div>
+  <div class="loc-grid" id="locGrid"></div>
+</div></div>
+<div id="app">
+  <div id="board"><canvas id="cv"></canvas></div>
+  <aside id="side">
+    <button id="endTurn">Завершить ход ▶</button>
+    <button id="notifyBtn" style="display:none">🔔 Юниты ждут</button>
+    <button id="combatBtn" style="display:none">⚔ Юниты в бою</button>
+    <div id="actions"></div>
+    <div style="display:flex;gap:6px">
+      <h1 style="flex:1">Hex Tactics</h1>
+      <button class="menu-btn" id="saveExit" style="width:auto;padding:4px 8px">💾</button>
+    </div>
+    <div class="panel res-grid">
+      <div class="res" id="resMana"><span>💧 Мана</span><b>0</b></div>
+      <div class="res" id="resGold"><span>🪙 Золото</span><b>0</b></div>
+      <div class="res"><span>⏳ Ход</span><b id="rTurn">1</b></div>
+      <div class="res"><span>🧙 Герой</span><b id="rHero">60 / 60</b></div>
+    </div>
+    <div class="panel" id="selection"></div>
+    <button id="openInventory" class="inv">🎒 Инвентарь</button>
+    <div class="panel"><div id="log"></div></div>
+  </aside>
+</div>
+<div id="over"><div class="box">
+  <h2 id="overTitle"></h2><p id="overText"></p>
+  <button id="restart">В главное меню</button>
+</div></div>
+<div id="invPanel">
+  <div class="inv-header"><h2>🎒 Инвентарь</h2><button id="closeInventory">✕</button></div>
+  <div class="inv-section-title">Экипировка</div>
+  <div class="inv-equip" id="invEquip"></div>
+  <div class="inv-section-title">Рюкзак</div>
+  <div class="inv-grid" id="invBackpack"></div>
+  <div class="inv-section-title">Склад</div>
+  <div class="inv-grid" id="invStash"></div>
+</div>
+<div class="inv-tooltip" id="invTooltip"></div>
+<div id="levelUpModal"><div class="lum-box">
+  <div class="lum-title">УРОВЕНЬ ПОВЫШЕН</div>
+  <div class="lum-sub">Выберите одно улучшение</div>
+  <div class="lum-cards" id="lumCards"></div>
+</div></div>
+<div id="tooltip"></div>
+<script>
+"use strict";
+const STORAGE = (function() {
+  try { localStorage.setItem('_t','1'); localStorage.removeItem('_t');
+    return { get:k=>localStorage.getItem(k), set:(k,v)=>localStorage.setItem(k,v), del:k=>localStorage.removeItem(k) };
+  } catch(e) {
+    const m = {};
+    return { get:k=>m[k]||null, set:(k,v)=>{m[k]=String(v)}, del:k=>{delete m[k]} };
+  }
+})();
+
+const SIZE=30, R=10, SQRT3=Math.sqrt(3), W=690, H=420, CX=W/2, CY=H/2;
+const DIRS=[[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
+const KNIGHT_DIRS=[[2,-1],[1,-2],[-1,-2],[-2,-1],[-2,1],[-1,2],[1,2],[2,1]];
+const BLUE_ZONES=new Set(['2,-1','-1,2','0,-3','5,2','-4,-4']);
+const GOLD_ZONES=new Set(['-2,1','1,1','3,0','-6,4','4,-6']);
+const COST_SUMMON=20, COST_UPGRADE=20, UPKEEP_PER_COMBAT=10;
+const MANA_ACOLYTE=5, MANA_ACOLYTE_BLUE=10;
+const GOLD_BASE=5, GOLD_ACOLYTE_ZONE=5, GOLD_PER_KILL=15, GOLD_PER_BOSS=100;
+const ROUND_LENGTH=20;
+const XP_KILL=15, XP_BOSS=250, XP_WARRIOR=25, XP_ARCHER=18, XP_KNIGHT=30, XP_ZOMBIE=20;
+const STUN_CHANCE=0.10, BOSS_CHANCE=0.20;
+const POI_SPAWN_INTERVAL=5;
+const SAVE_PREFIX='ht_slot_', SAVE_VERSION=6;
+const SHOP_COSTS={barracks:[75,100,150],archery:[100,150,200],cavalry:[125,175,250],forge_atk:[50,75,100,150,200],forge_def:[50,75,100,150,200]};
+const MAX_BUILDINGS=3, MAX_FORGE=5;
+
+function defaultMeta() {
+  return {
+    gold:0,
+    inventory:{ equipment:{helmet:null,amulet:null,chest:null,weaponL:null,weaponR:null,ring:null,boots:null}, backpack:Array(20).fill(null), stash:Array(10).fill(null) },
+    buildings:{barracks:0,archery:0,cavalry:0},
+    forge:{atk:0,def:0},
+    runsCompleted:0
+  };
+}
+
+const HERO_TEMPLATE={name:'Некромант',hp:60,atk:3,def:2,moves:1,regen:2,manaPerTurn:5,color:'#7c3aed',dark:'#3a1a5c'};
+const UNIT_TYPES={
+  acolyte:{name:'Адепт',atk:2,hp:15,def:1,moves:1,range:1,regen:1,color:'#4fa3ff',dark:'#12324f'},
+  warrior:{name:'Воин',atk:6,hp:24,def:2,moves:2,range:1,regen:2,color:'#ff9f43',dark:'#4a2c0c'},
+  archer:{name:'Лучник',atk:3,hp:12,def:1,moves:1,range:3,regen:1,color:'#a78bfa',dark:'#3b2a5c'},
+  knight:{name:'Конь',atk:6,hp:36,def:3,moves:1,range:1,regen:2,color:'#7ae6a4',dark:'#1a4a2e'},
+  brute:{name:'Громила',atk:8,hp:45,def:3,moves:1,range:1,regen:3,color:'#d97706',dark:'#5c3a10'}
+};
+const ENEMY_TYPES={
+  grunt:{name:'Гоблин',atk:6,hp:6,def:0,speed:2,range:1,regen:1,color:'#a83a2c',dark:'#4a1a12',canAttackAfterMove:false},
+  zombie:{name:'Зомби',atk:4,hp:18,def:1,speed:1,range:1,regen:0,color:'#7a8a5a',dark:'#3a4a2a',canAttackAfterMove:false},
+  warrior:{name:'Враг-воин',atk:6,hp:24,def:2,speed:2,range:1,regen:2,color:'#e74c3c',dark:'#7a1d24'},
+  archer:{name:'Враг-лучник',atk:3,hp:12,def:1,speed:1,range:3,regen:1,color:'#d946ef',dark:'#5a1a5a'},
+  knight:{name:'Враг-конь',atk:6,hp:36,def:3,speed:1,range:1,regen:2,color:'#f472b6',dark:'#6a1a3a'},
+  boss:{name:'БОСС · Тёмный рыцарь',atk:12,hp:100,def:5,speed:1,range:1,regen:3,color:'#8b0000',dark:'#4a0000',isBoss:true}
+};
+
+function generateRing(radius) {
+  const ring=[], rDirs=[[1,0],[0,1],[-1,1],[-1,0],[0,-1],[1,-1]];
+  let q=-radius, r=radius;
+  for (const [dq,dr] of rDirs) for (let i=0; i<radius; i++) { ring.push({q,r}); q+=dq; r+=dr; }
+  return ring;
+}
+const RINGS={1:generateRing(1),2:generateRing(2),3:generateRing(3),4:generateRing(4)};
+
+const MAP=[];
+for (let q=-R; q<=R; q++) for (let r=-R; r<=R; r++) if (Math.abs(q+r)<=R) MAP.push({q,r});
+const MAP_SET=new Set(MAP.map(h=>h.q+','+h.r));
+const key=(q,r)=>q+','+r;
+const inMap=(q,r)=>MAP_SET.has(key(q,r));
+const hexDist=(q1,r1,q2,r2)=>{const dq=q1-q2,dr=r1-r2,ds=(-q1-r1)-(-q2-r2);return (Math.abs(dq)+Math.abs(dr)+Math.abs(ds))/2;};
+const adjacent=(q1,r1,q2,r2)=>hexDist(q1,r1,q2,r2)===1;
+const isKnightMove=(q1,r1,q2,r2)=>{const dq=q2-q1,dr=r2-r1;return KNIGHT_DIRS.some(([a,b])=>a===dq&&b===dr);};
+const isEdge=(q,r)=>Math.max(Math.abs(q),Math.abs(r),Math.abs(q+r))===R;
+const TERRAIN=new Map();
+for (const h of MAP) {
+  const seed=Math.abs((h.q*73856093)^(h.r*19349663))%1000;
+  if (seed<50) TERRAIN.set(key(h.q,h.r),'atk');
+  else if (seed<100) TERRAIN.set(key(h.q,h.r),'def');
+  else if (seed<130) TERRAIN.set(key(h.q,h.r),'curse');
+}
+
+const cv=document.getElementById('cv');
+const ctx=cv.getContext('2d');
+const dpr=window.devicePixelRatio||1;
+cv.width=W*dpr; cv.height=H*dpr;
+cv.style.width=W+'px'; cv.style.height=H+'px';
+ctx.scale(dpr,dpr);
+const tooltip=document.getElementById('tooltip');
+const invTooltip=document.getElementById('invTooltip');
+
+let S=null, currentSlot=-1, currentLocation=1;
+let isAnimating=false, phase=null;
+let visualProj=[], slashes=[], floaters=[];
+let camX=0, camY=0;
+let mouseDownInfo=null, isDragging=false, dragSrcSlot=null;
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+// ========== SKILL REGISTRY ==========
+function findNearestEnemyTo(q,r,maxR){let best=null,bd=maxR;for(const e of S.enemies){const d=hexDist(q,r,e.q,e.r);if(d<=bd){bd=d;best=e;}}return best;}
+
+const SKILL_LIST=[
+  {id:'wand',name:'Магический жезл',icon:'🪄',maxLevel:8,color:'#4fa3ff',
+    stats:lv=>({count:lv>=4?3:lv>=2?2:1,dmg:Math.floor((4+Math.floor(lv/2))*(lv>=8?1.25:1)),speed:2,pierce:lv>=5?3:0,range:12}),
+    desc:function(lv){const s=this.stats(lv);return `Самонавод: ${s.count}×${s.dmg}${s.pierce?' пробитие':''}`;},
+    cooldown:(c,lv)=>Math.max(1,3-(c.passives?.tome||0)-((c.evolutions?.includes('holywand'))?1:0)),
+    shouldFire:function(c,lv){const s=this.stats(lv);return findNearestEnemyTo(c.q,c.r,Math.min(s.range,s.speed*3))!==null;},
+    execute:function(c,lv){const s=this.stats(lv);const dup=c.passives?.duplicator||0;const evo=c.evolutions?.includes('holywand');
+      for(let i=0;i<s.count+dup;i++){const t=findNearestEnemyTo(c.q,c.r,s.range);if(!t)break;
+        S.projectiles.push({kind:'wand',q:c.q,r:c.r,targetEnemyId:t.id,dmg:s.dmg,speed:s.speed,pierce:evo?0:s.pierce,life:8,color:'#4fa3ff',size:6+i*2,evolved:evo,knockback:evo,ownerId:c.id});}}
+  },
+  {id:'garlic',name:'Чеснок',icon:'🧄',maxLevel:8,color:'#ff9f43',passive:true,
+    stats:lv=>({dmg:2+lv,radius:lv>=5?2:1,armorBreak:lv>=8}),
+    desc:function(lv){const s=this.stats(lv);return `Аура R${s.radius} · ${s.dmg} dmg · отброс${s.armorBreak?' · -броня':''}`;},
+    cooldown:()=>1,
+    shouldFire:function(c,lv){const s=this.stats(lv);const aoe=getAoeBonus(c);const radius=s.radius+aoe.radius;return S.enemies.some(e=>hexDist(c.q,c.r,e.q,e.r)<=radius);},
+    execute:function(c,lv){const s=this.stats(lv);const evo=c.evolutions?.includes('souleater');const aoe=getAoeBonus(c);const radius=s.radius+aoe.radius;
+      const affected=S.enemies.filter(e=>hexDist(c.q,c.r,e.q,e.r)<=radius);let healed=0;const ticks=evo?2:1;
+      for(let ti=0;ti<ticks;ti++){for(const e of [...affected]){if(!S.enemies.includes(e))continue;
+        const dmg=Math.max(1,Math.floor(s.dmg*aoe.mult));damageEnemy(e,dmg,c);if(s.armorBreak)e.armorBreak=1;
+        const [dq,dr]=getDirection(c.q,c.r,e.q,e.r);const nq=e.q+dq,nr=e.r+dr;if(inMap(nq,nr)&&!entityAt(nq,nr)){e.q=nq;e.r=nr;}
+        if(evo){healed++;if(Math.random()<0.15){e.stunned=true;e.stunnedUntil=S.turn+1;}}
+        if(e.hp<=0)onEnemyKilled(e,c);}}
+      if(healed>0&&c.hp<c.maxHp)c.hp=Math.min(c.maxHp,c.hp+healed);}
+  },
+  {id:'axe',name:'Топор',icon:'🪓',maxLevel:8,color:'#d97706',spiral:true,
+    stats:lv=>({count:lv>=4?3:lv>=2?2:1,dmg:8+lv*2,speed:3,pierce:99,range:15,life:lv>=8?10:6}),
+    desc:function(lv){const s=this.stats(lv);return `Спираль: ${s.count}×${s.dmg} dmg`;},
+    cooldown:()=>5,
+    shouldFire:function(c,lv){const s=this.stats(lv);return findNearestEnemyTo(c.q,c.r,Math.min(s.range,s.speed*3))!==null;},
+    execute:function(c,lv){const s=this.stats(lv);const evo=c.evolutions?.includes('deathspiral');const dup=c.passives?.duplicator||0;
+      for(let i=0;i<s.count+dup;i++){const t=findNearestEnemyTo(c.q,c.r,s.range);if(!t)break;
+        S.projectiles.push({kind:'axe',q:c.q,r:c.r,targetEnemyId:t.id,dmg:s.dmg,speed:s.speed,pierce:99,life:evo?15:s.life,color:'#d97706',size:8,evolved:evo,ownerId:c.id,spiral:true,spiralCounter:0});}}
+  },
+  {id:'water',name:'Святая вода',icon:'💧',maxLevel:8,color:'#8fd0ff',
+    stats:lv=>({count:lv>=5?2:1,dmg:3+lv,duration:5+lv,radius:1,slow:lv>=8}),
+    desc:function(lv){const s=this.stats(lv);return `Зона R1 · ${s.dmg} dmg · ${s.count} зон${s.slow?' · 🐌':''}`;},
+    cooldown:()=>4,
+    shouldFire:function(c,lv){return S.enemies.some(e=>hexDist(c.q,c.r,e.q,e.r)<=6);},
+    execute:function(c,lv){const s=this.stats(lv);const evo=c.evolutions?.includes('laborra');const aoe=getAoeBonus(c);const hg=getHourglassBonus(c);
+      for(let i=0;i<s.count;i++){let bestQ=c.q,bestR=c.r,bestCnt=0;
+        for(let dq=-6;dq<=6;dq++)for(let dr=-6;dr<=6;dr++){const q=c.q+dq,r=c.r+dr;if(hexDist(c.q,c.r,q,r)>6||!inMap(q,r))continue;
+          let cnt=0;for(const e of S.enemies)if(hexDist(q,r,e.q,e.r)<=1)cnt++;
+          if(cnt>bestCnt){bestCnt=cnt;bestQ=q;bestR=r;}}
+        const hexes=[{q:bestQ,r:bestR}];
+        for(const [dq,dr] of DIRS)if(inMap(bestQ+dq,bestR+dr))hexes.push({q:bestQ+dq,r:bestR+dr});
+        S.zones.push({kind:'water',hexes,dmg:s.dmg,life:s.duration+hg,color:'#8fd0ff',evolved:evo,slow:s.slow,followHero:evo,ownerId:c.id,heroOffsetQ:bestQ-c.q,heroOffsetR:bestR-c.r});}}
+  },
+  {id:'cross',name:'Крест',icon:'✝️',maxLevel:8,color:'#a78bfa',
+    stats:lv=>({count:lv>=4?3:lv>=2?2:1,dmg:6+lv*2,speed:lv>=5?4:3,pierce:99,range:15,pause:lv>=4}),
+    desc:function(lv){const s=this.stats(lv);return `Бумеранг: ${s.count}×${s.dmg}${s.pause?' пауза':''}`;},
+    cooldown:(c,lv)=>Math.max(1,4-(c.passives?.tome||0)-((c.evolutions?.includes('heavensword'))?2:0)),
+    shouldFire:function(c,lv){const s=this.stats(lv);return findNearestEnemyTo(c.q,c.r,Math.min(s.range,s.speed*3))!==null;},
+    execute:function(c,lv){const s=this.stats(lv);const evo=c.evolutions?.includes('heavensword');const dup=c.passives?.duplicator||0;
+      for(let i=0;i<s.count+dup;i++){const t=findNearestEnemyTo(c.q,c.r,s.range);if(!t)break;
+        S.projectiles.push({kind:'cross',q:c.q,r:c.r,targetEnemyId:t.id,dmg:s.dmg,speed:s.speed,pierce:99,life:8,color:'#a78bfa',size:7,returning:false,pause:0,pauseMax:s.pause?1:0,evolved:evo,ownerId:c.id});}}
+  },
+  {id:'bible',name:'Королевская Библия',icon:'📖',maxLevel:8,color:'#ff8888',
+    stats:lv=>({count:4+Math.floor(Math.max(0,lv-1)/2),dmg:5+lv,speed:lv>=5?2:1,duration:11,radius:2,knockback:lv>=8}),
+    desc:function(lv){const s=this.stats(lv);return `Орбита: ${s.count} книг${lv>=5?' быстрее':''}`;},
+    cooldown:()=>6,
+    shouldFire:function(c,lv){return S.enemies.some(e=>hexDist(c.q,c.r,e.q,e.r)<=3);},
+    execute:function(c,lv){const s=this.stats(lv);const evo=c.evolutions?.includes('unholyvespers');const hg=getHourglassBonus(c);
+      const radius=evo?3:s.radius;const speed=evo?2:s.speed;const ringLen=RINGS[radius].length;
+      for(let i=0;i<s.count;i++){S.books.push({idx:Math.floor(i*ringLen/s.count),radius,speed,dmg:s.dmg,life:evo?9999:s.duration+hg,evolved:evo,knockback:evo||s.knockback,ownerId:c.id});}}
+  },
+  {id:'lightning',name:'Кольцо молний',icon:'⚡',maxLevel:8,color:'#ffe066',
+    stats:lv=>({dmg:8+lv*2,rings:lv>=5?2:1,radii:[2,4],stunTurns:lv>=8?2:1,shockLife:2}),
+    desc:function(lv){const s=this.stats(lv);return `Молния: ${s.dmg} dmg · ${s.rings}×R${lv>=5?'2+4':'2'}`;},
+    cooldown:(c,lv)=>Math.max(1,5-(c.passives?.tome||0)-((c.evolutions?.includes('thunderloop'))?4:0)),
+    shouldFire:function(c,lv){return S.enemies.some(e=>hexDist(c.q,c.r,e.q,e.r)<=2);},
+    execute:function(c,lv){const s=this.stats(lv);const evo=c.evolutions?.includes('thunderloop');const rc=evo?2:s.rings;
+      for(let ri=0;ri<rc;ri++){const radius=s.radii[ri]||2;const ring=RINGS[radius];
+        const hexes=ring.map(o=>({q:c.q+o.q,r:c.r+o.r})).filter(h=>inMap(h.q,h.r));
+        for(const h of hexes){const hits=S.enemies.filter(e=>e.q===h.q&&e.r===h.r);
+          for(const e of hits){damageEnemy(e,s.dmg,c);e.stunned=true;e.stunnedUntil=S.turn+s.stunTurns;if(e.hp<=0)onEnemyKilled(e,c);}}
+        S.shockZones.push({hexes,dmg:Math.floor(s.dmg*0.5),life:evo?3:s.shockLife,evolved:evo,ownerId:c.id});}}
+  }
+];
+const SKILL_REGISTRY={};
+SKILL_LIST.forEach(s=>SKILL_REGISTRY[s.id]=s);
+
+const PASSIVE_DEFS={
+  tome:{name:'Пустой том',icon:'📖',maxLevel:5,desc:'−1 КД'},
+  tomato:{name:'Помидор',icon:'🍅',maxLevel:5,desc:'+1 HP/ход'},
+  hourglass:{name:'Песочные часы',icon:'⏳',maxLevel:5,desc:'+1 длит. зон'},
+  candelabrador:{name:'Канделябр',icon:'🕯️',maxLevel:5,desc:'+10% область'},
+  attractor:{name:'Аттрактор',icon:'🧲',maxLevel:5,desc:'+1 радиус'},
+  clover:{name:'Клевер',icon:'🍀',maxLevel:5,desc:'+10% крит'},
+  duplicator:{name:'Дубликатор',icon:'⚡',maxLevel:5,desc:'+1 снаряд'}
+};
+const EVOLUTIONS={
+  holywand:{fromSkill:'wand',fromPassive:'tome',name:'Святой жезл',icon:'✨',desc:'Отброс, КД 2'},
+  souleater:{fromSkill:'garlic',fromPassive:'tomato',name:'Пожиратель душ',icon:'😈',desc:'×2 тик, вампиризм, 15% заморозка'},
+  deathspiral:{fromSkill:'axe',fromPassive:'candelabrador',name:'Спираль смерти',icon:'🌀',desc:'Орбита'},
+  laborra:{fromSkill:'water',fromPassive:'attractor',name:'Лагуна',icon:'🌊',desc:'Следует за героем'},
+  heavensword:{fromSkill:'cross',fromPassive:'clover',name:'Небесный меч',icon:'🗡️',desc:'КД 1, орбита'},
+  unholyvespers:{fromSkill:'bible',fromPassive:'hourglass',name:'Нечестивая вечерня',icon:'📚',desc:'Вечные, R3'},
+  thunderloop:{fromSkill:'lightning',fromPassive:'duplicator',name:'Громовая петля',icon:'⚡',desc:'CD 1'}
+};
+
+const POI_TEMPLATES=[
+  {q:5,r:-3,kind:'chest'},{q:-6,r:5,kind:'chest'},
+  {q:7,r:2,kind:'camp'},{q:-5,r:-6,kind:'camp'},
+  {q:0,r:8,kind:'ruin'},{q:7,r:-6,kind:'shrine'},
+  {q:-8,r:3,kind:'chest'},{q:2,r:6,kind:'pandora'}
+];
+const EVAC_POS={q:7,r:-5};
+const BARRACKS_POSITIONS=[{q:-3,r:3},{q:4,r:-1}];
+const POI_INFO={
+  chest:{icon:'💰',name:'Сундук',color:'#f0c040',guarded:true},
+  camp:{icon:'🏴',name:'Логово',color:'#e74c3c',guarded:true},
+  ruin:{icon:'🏛',name:'Руины',color:'#a78bfa',guarded:true},
+  shrine:{icon:'⛩',name:'Святилище',color:'#7ae6a4',guarded:false},
+  pandora:{icon:'🎁',name:'Пандора',color:'#a78bfa',guarded:false},
+  evacuation:{icon:'🚪',name:'Эвакуация',color:'#44ff88',guarded:false}
+};
+const ITEM_DEFS={
+  potion_hp:{name:'Зелье',icon:'🧪',desc:'+30 HP',slot:null},
+  potion_mp:{name:'Зелье маны',icon:'💧',desc:'+20 маны',slot:null},
+  sling:{name:'Праща',icon:'🎯',desc:'Дальность 2',slot:'weaponL',rangeOverride:2},
+  sword:{name:'Меч',icon:'🗡',desc:'Ближний +2 атк',slot:'weaponL',rangeOverride:1,atkBonus:2},
+  dagger:{name:'Кинжал',icon:'🔪',desc:'Ближний +1 атк +1 шаг',slot:'weaponL',rangeOverride:1,atkBonus:1,moveBonus:1},
+  longbow:{name:'Лук',icon:'🏹',desc:'Дальн. 3 +1 атк',slot:'weaponL',rangeOverride:3,atkBonus:1},
+  iron_sword:{name:'Жел. меч',icon:'⚔',desc:'Ближний +4 атк',slot:'weaponL',rangeOverride:1,atkBonus:4},
+  necro_staff:{name:'Посох',icon:'🪄',desc:'Дальн. 2 +2 атк +3 маны',slot:'weaponL',rangeOverride:2,atkBonus:2,manaBonus:3,rare:true},
+  leather_armor:{name:'Кож. броня',icon:'🛡',desc:'+1 защ +5 HP',slot:'chest',defBonus:1,hpBonus:5},
+  chainmail:{name:'Кольчуга',icon:'🛡️',desc:'+2 защ +10 HP',slot:'chest',defBonus:2,hpBonus:10},
+  mage_robe:{name:'Мантия',icon:'👘',desc:'+2 маны +3 HP',slot:'chest',manaBonus:2,hpBonus:3},
+  runic_armor:{name:'Рун. броня',icon:'🛡️',desc:'+3 защ +15 HP',slot:'chest',defBonus:3,hpBonus:15,rare:true},
+  leather_helm:{name:'Кож. шлем',icon:'🎩',desc:'+1 защ +3 HP',slot:'helmet',defBonus:1,hpBonus:3},
+  steel_helm:{name:'Стальной шлем',icon:'⛑',desc:'+2 защ +5 HP',slot:'helmet',defBonus:2,hpBonus:5},
+  crown:{name:'Корона',icon:'👑',desc:'+1/+1/+5/+1',slot:'helmet',atkBonus:1,defBonus:1,hpBonus:5,manaBonus:1,rare:true},
+  leather_boots:{name:'Кож. сапоги',icon:'🥾',desc:'+1 шаг',slot:'boots',moveBonus:1},
+  swift_boots:{name:'Быстрые',icon:'👢',desc:'+2 шага',slot:'boots',moveBonus:2,rare:true},
+  ring_power:{name:'Кольцо силы',icon:'💍',desc:'+1 атк +5 HP',slot:'ring',atkBonus:1,hpBonus:5},
+  ring_mana:{name:'Кольцо маны',icon:'💍',desc:'+2 маны',slot:'ring',manaBonus:2},
+  amulet_mana:{name:'Амулет маны',icon:'📿',desc:'+3 маны',slot:'amulet',manaBonus:3},
+  amulet_def:{name:'Амулет защиты',icon:'📿',desc:'+1 защ +10 HP',slot:'amulet',defBonus:1,hpBonus:10},
+  tome:{name:'Том',icon:'📖',desc:'Магический',slot:null},
+  gem:{name:'Самоцвет',icon:'💎',desc:'Дорогой',slot:null}
+};
+const DROP_TABLES={
+  chest:{common:0.70,uncommon:0.25,rare:0.05,pool:{common:['gem','potion_hp','potion_mp'],uncommon:['sword','leather_armor','leather_helm','leather_boots','ring_power'],rare:['necro_staff','chainmail','swift_boots']}},
+  camp:{common:0.50,uncommon:0.40,rare:0.10,pool:{common:['potion_hp','gem'],uncommon:['iron_sword','steel_helm','ring_power','dagger'],rare:['runic_armor','swift_boots']}},
+  ruin:{common:0.40,uncommon:0.45,rare:0.15,pool:{common:['tome','gem'],uncommon:['mage_robe','amulet_mana','longbow'],rare:['necro_staff','crown']}},
+  boss:{common:0.0,uncommon:0.5,rare:0.5,pool:{common:[],uncommon:['iron_sword','chainmail','steel_helm'],rare:['runic_armor','crown','necro_staff','swift_boots']}}
+};
+const TERRAIN_INFO={
+  atk:{icon:'⚔',color:'#f59e0b',fill:'#2a1e08',stroke:'#a06a1e',label:'+2 атк'},
+  def:{icon:'🛡',color:'#3b82f6',fill:'#0e1e2e',stroke:'#3a6ab0',label:'+2 защ'},
+  curse:{icon:'☠',color:'#a855f7',fill:'#2a0e2a',stroke:'#8a2f9a',label:'+1/-2'}
+};
+
+// ========== SAVE/LOAD ==========
+function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
+
+function saveGame() {
+  if (currentSlot<0 || !S) return;
+  try {
+    const c=deepClone(S);
+    c._version=SAVE_VERSION;
+    c._location=currentLocation;
+    c._timestamp=Date.now();
+    c.gameOver=S.gameOver;
+    STORAGE.set(SAVE_PREFIX+currentSlot, JSON.stringify(c));
+  } catch(e){console.error(e);}
+}
+function saveMeta() {
+  if (currentSlot<0 || !S) return;
+  try {
+    const c={
+      _version:SAVE_VERSION,
+      _timestamp:Date.now(),
+      _location:currentLocation,
+      meta:S.meta,
+      gameOver:true
+    };
+    STORAGE.set(SAVE_PREFIX+currentSlot, JSON.stringify(c));
+  } catch(e){console.error(e);}
+}
+function loadGame(slotId) {
+  const raw=STORAGE.get(SAVE_PREFIX+slotId);
+  if (!raw) return false;
+  try {
+    const p=JSON.parse(raw);
+    if (p._version!==SAVE_VERSION) { STORAGE.del(SAVE_PREFIX+slotId); return false; }
+    if (!p.meta) p.meta=defaultMeta();
+    if (p.gameOver || !p.units) {
+      return false; // активного забега нет — открываем магазин
+    }
+    S=p;
+    S.hero=S.units.find(u=>u.isHero);
+    if (!S.hero) return false;
+    currentSlot=slotId; currentLocation=p._location||1;
+    if (S.hero.passives?.spellbinder) {
+      S.hero.passives.hourglass=(S.hero.passives.hourglass||0)+S.hero.passives.spellbinder;
+      delete S.hero.passives.spellbinder;
+    }
+    if (!S.hero.passives) S.hero.passives={};
+    if (!S.hero.skills) S.hero.skills={};
+    if (!S.hero.skillCDs) S.hero.skillCDs={};
+    if (!S.hero.evolutions) S.hero.evolutions=[];
+    if (!S.projectiles) S.projectiles=[];
+    if (!S.zones) S.zones=[];
+    if (!S.books) S.books=[];
+    if (!S.shockZones) S.shockZones=[];
+    for (const sid of Object.keys(SKILL_REGISTRY)) if (typeof S.hero.skillCDs[sid]!=='number') S.hero.skillCDs[sid]=0;
+    visualProj=[]; slashes=[]; floaters=[]; isAnimating=false; phase=null;
+    camX=0; camY=0; clampCamera();
+    document.getElementById('startScreen').classList.add('hide');
+    document.getElementById('locationScreen').classList.remove('show');
+    document.getElementById('app').classList.add('open');
+    updateUI(); draw();
+    return true;
+  } catch(e){console.error(e);return false;}
+}
+function deleteSlot(slotId) {
+  if (!confirm('Удалить слот '+(slotId+1)+'?')) return;
+  STORAGE.del(SAVE_PREFIX+slotId); renderSlots();
+}
+function readSlot(slotId) {
+  try {
+    const raw=STORAGE.get(SAVE_PREFIX+slotId);
+    if (!raw) return null;
+    const p=JSON.parse(raw);
+    if (p._version!==SAVE_VERSION) return null;
+    const meta=p.meta||defaultMeta();
+    const isActive=!p.gameOver && p.units && p.units.length>0;
+    return {
+      state:isActive?'active':'idle',
+      meta:meta,
+      turn:p.turn||0,
+      round:p.round||0,
+      level:p.hero?.level||1,
+      runs:meta.runsCompleted||0,
+      ts:p._timestamp
+    };
+  } catch {return null;}
+}
+function renderSlots() {
+  const el=document.getElementById('slots');
+  if (!el) return;
+  let html='';
+  for (let i=0;i<3;i++) {
+    const d=readSlot(i);
+    if (!d) {
+      html+=`<div class="slot"><div class="slot-num">Слот ${i+1}</div><div class="slot-info">Пусто</div><div class="slot-meta">Начните новую</div><button class="slot-new" data-action="shop" data-slot="${i}">+ Новая</button></div>`;
+    } else if (d.state==='active') {
+      html+=`<div class="slot occupied active-run"><div class="slot-num">Слот ${i+1}</div><div class="slot-info">Ход ${d.turn} · Р${d.round}</div><div class="slot-meta">Ур.${d.level}<br><span class="gold">🪙 ${d.meta.gold}</span> · забегов ${d.runs}</div><button class="slot-continue" data-action="continue" data-slot="${i}">▶ Продолжить</button><button class="slot-delete" data-action="delete" data-slot="${i}">🗑 Удалить</button></div>`;
+    } else {
+      html+=`<div class="slot occupied"><div class="slot-num">Слот ${i+1}</div><div class="slot-info">Готов к забегу</div><div class="slot-meta"><span class="gold">🪙 ${d.meta.gold}</span><br>Забегов: ${d.runs}</div><button class="slot-continue" data-action="shop" data-slot="${i}">🛒 Подготовка</button><button class="slot-delete" data-action="delete" data-slot="${i}">🗑 Удалить</button></div>`;
+    }
+  }
+  el.innerHTML=html;
+}
+document.getElementById('slots').addEventListener('click', e=>{
+  const btn=e.target.closest('button');
+  if (!btn) return;
+  const sid=parseInt(btn.dataset.slot);
+  const raw=STORAGE.get(SAVE_PREFIX+sid);
+  if (btn.dataset.action==='delete') deleteSlot(sid);
+  else if (btn.dataset.action==='continue') loadGame(sid);
+  else if (btn.dataset.action==='shop') {
+    currentSlot=sid;
+    const save=raw?JSON.parse(raw):null;
+    const meta=(save&&save.meta)||defaultMeta();
+    S={meta};
+    document.getElementById('locationScreen').classList.add('show');
+    renderLocations(meta);
+  }
+});
+
+function renderLocations(meta) {
+  document.getElementById('metaGold').textContent='🪙 '+meta.gold;
+  const shopGrid=document.getElementById('shopGrid');
+  shopGrid.innerHTML=`
+    ${shopCard('barracks','🏰','Казарма','+1 воин',meta.buildings.barracks,MAX_BUILDINGS,SHOP_COSTS.barracks[meta.buildings.barracks]||null,meta.gold)}
+    ${shopCard('archery','🏹','Стрельбище','+1 лучник',meta.buildings.archery,MAX_BUILDINGS,SHOP_COSTS.archery[meta.buildings.archery]||null,meta.gold)}
+    ${shopCard('cavalry','🐎','Конница','+1 конь',meta.buildings.cavalry,MAX_BUILDINGS,SHOP_COSTS.cavalry[meta.buildings.cavalry]||null,meta.gold)}
+    ${shopCard('forge_atk','⚒','Кузница Атк','+'+meta.forge.atk+' атк',meta.forge.atk,MAX_FORGE,SHOP_COSTS.forge_atk[meta.forge.atk]||null,meta.gold)}
+    ${shopCard('forge_def','🛡','Кузница Защ','+'+meta.forge.def+' защ',meta.forge.def,MAX_FORGE,SHOP_COSTS.forge_def[meta.forge.def]||null,meta.gold)}
+  `;
+  shopGrid.querySelectorAll('button[data-buy]').forEach(b=>{
+    b.addEventListener('click',()=>buyShopItem(b.dataset.buy,meta));
+  });
+  const locGrid=document.getElementById('locGrid');
+  locGrid.innerHTML=`
+    <div class="loc-card" data-loc="1"><div class="loc-icon">🏛</div><div class="loc-name">Первые руины</div><div class="loc-desc">Орда гоблинов и зомби</div></div>
+    <div class="loc-card locked"><div class="loc-icon">🔒</div><div class="loc-name">Шахты</div><div class="loc-desc">Скоро</div></div>
+    <div class="loc-card locked"><div class="loc-icon">🔒</div><div class="loc-name">Лес</div><div class="loc-desc">Скоро</div></div>
+  `;
+  locGrid.querySelectorAll('.loc-card[data-loc]').forEach(c=>{
+    c.addEventListener('click',()=>{
+      currentLocation=parseInt(c.dataset.loc);
+      document.getElementById('locationScreen').classList.remove('show');
+      startNewGame(meta);
+    });
+  });
+}
+function shopCard(id,icon,name,desc,lv,maxLv,cost,gold) {
+  const maxed=lv>=maxLv;
+  const canBuy=!maxed && cost && gold>=cost;
+  return `<div class="shop-card">
+    <div class="shop-icon">${icon}</div>
+    <div class="shop-name">${name}</div>
+    <div class="shop-desc">${desc}</div>
+    <div class="shop-lvl">Ур ${lv}/${maxLv}</div>
+    <button data-buy="${id}" ${canBuy?'':'disabled'}>${maxed?'MAX':'Купить '+(cost||'?')+'🪙'}</button>
+  </div>`;
+}
+function buyShopItem(id,meta) {
+  if (id==='barracks'||id==='archery'||id==='cavalry') {
+    if (meta.buildings[id]>=MAX_BUILDINGS) return;
+    const cost=SHOP_COSTS[id][meta.buildings[id]];
+    if (meta.gold<cost) return;
+    meta.gold-=cost; meta.buildings[id]++;
+  } else if (id==='forge_atk'||id==='forge_def') {
+    const sub=id==='forge_atk'?'atk':'def';
+    if (meta.forge[sub]>=MAX_FORGE) return;
+    const cost=SHOP_COSTS[id][meta.forge[sub]];
+    if (meta.gold<cost) return;
+    meta.gold-=cost; meta.forge[sub]++;
+  }
+  // Сохраняем мету
+  const raw=STORAGE.get(SAVE_PREFIX+currentSlot);
+  const save=raw?JSON.parse(raw):{_version:SAVE_VERSION,meta:meta,gameOver:true};
+  save.meta=meta;
+  save._timestamp=Date.now();
+  save._version=SAVE_VERSION;
+  save.gameOver=true;
+  STORAGE.set(SAVE_PREFIX+currentSlot,JSON.stringify(save));
+  renderLocations(meta);
+  renderSlots();
+}
+
+// ========== NEW GAME ==========
+function startNewGame(meta) {
+  document.getElementById('startScreen').classList.add('hide');
+  document.getElementById('locationScreen').classList.remove('show');
+  document.getElementById('app').classList.add('open');
+  newGame(meta);
+  saveGame();
+}
+function newGame(meta) {
+  if (!meta) meta=defaultMeta();
+  S={
+    turn:1,round:1,mana:60,gold:0,hero:null,
+    meta:meta,
+    units:[],enemies:[],
+    barracks:BARRACKS_POSITIONS.map(b=>({id:0,q:b.q,r:b.r})),
+    pois:[],
+    inventory:deepClone(meta.inventory),
+    projectiles:[],zones:[],books:[],shockZones:[],
+    selection:null,summonMode:false,notifyIdx:0,combatIdx:0,
+    lastPoiSpawnTurn:1,lastWaveTurn:0,hordeCount:0,
+    goldBonus:0,summonDiscount:0,
+    armyAtkBonus:meta.forge.atk,
+    armyDefBonus:meta.forge.def,
+    armyMoveBonus:0,
+    pendingLevelUps:0,bossSpawned:false,
+    gameOver:false,log:[],nextId:1
+  };
+  visualProj=[]; slashes=[]; floaters=[]; isAnimating=false; phase=null;
+  camX=0; camY=0; clampCamera();
+  document.getElementById('over').classList.remove('show');
+  document.getElementById('invPanel').classList.remove('open');
+  S.barracks.forEach(b=>b.id=S.nextId++);
+
+  const hero={
+    id:S.nextId++,type:'hero',isHero:true,q:0,r:0,
+    hp:HERO_TEMPLATE.hp,maxHp:HERO_TEMPLATE.hp,
+    atk:HERO_TEMPLATE.atk,def:HERO_TEMPLATE.def,
+    baseAtk:HERO_TEMPLATE.atk,baseDef:HERO_TEMPLATE.def,baseMaxHp:HERO_TEMPLATE.hp,
+    movesLeft:HERO_TEMPLATE.moves,maxMoves:HERO_TEMPLATE.moves,
+    regen:HERO_TEMPLATE.regen,rangeBonus:0,
+    hasMoved:false,exhausted:false,stunnedUntil:0,evacuating:0,
+    preferredTargetId:null,autoPath:[],onHold:false,
+    xp:0,level:1,manaBonus:0,weaponRange:2,equipManaBonus:0,
+    skills:{wand:1,garlic:0,axe:0,water:0,cross:0,bible:0,lightning:0},
+    passives:{tome:0,tomato:0,hourglass:0,candelabrador:0,attractor:0,clover:0,duplicator:0},
+    evolutions:[],
+    skillCDs:{wand:3,garlic:0,axe:0,water:0,cross:0,bible:0,lightning:0}
+  };
+  S.hero=hero;
+  S.units.push(hero);
+  if (!S.inventory.equipment.weaponL) {
+    S.inventory.equipment.weaponL={id:S.nextId++,kind:'sling'};
+  }
+  recalcHeroStats();
+
+  // Спавн юнитов из зданий
+  for (let i=0;i<meta.buildings.barracks;i++) spawnStarterUnit('warrior');
+  for (let i=0;i<meta.buildings.archery;i++) spawnStarterUnit('archer');
+  for (let i=0;i<meta.buildings.cavalry;i++) spawnStarterUnit('knight');
+
+  // POI
+  for (const tpl of POI_TEMPLATES) {
+    const poi={q:tpl.q,r:tpl.r,kind:tpl.kind,looted:false};
+    S.pois.push(poi);
+    if (POI_INFO[tpl.kind].guarded) spawnGuard(poi);
+  }
+  // Эвакуация (постоянная)
+  S.pois.push({q:EVAC_POS.q,r:EVAC_POS.r,kind:'evacuation',looted:false,permanent:true});
+
+  addLog('🧙 Некромант пробудился. XP только за убийства.', true);
+  if (meta.buildings.barracks||meta.buildings.archery||meta.buildings.cavalry) {
+    addLog(`🏰 Стартовая армия: ${meta.buildings.barracks}⚔ ${meta.buildings.archery}🏹 ${meta.buildings.cavalry}🐎`, true);
+  }
+  addLog('🚪 Точка эвакуации: (7,-5). Дойди и активируй для сохранения золота.');
+  updateUI(); draw();
+}
+function spawnStarterUnit(type) {
+  const t=UNIT_TYPES[type];
+  const bn=S.armyMoveBonus||0;
+  const spots=[];
+  for (const [dq,dr] of DIRS) {
+    const q=S.hero.q+dq,r=S.hero.r+dr;
+    if (inMap(q,r)&&!entityAt(q,r)) spots.push({q,r});
+  }
+  if (!spots.length) return;
+  const s=spots[0];
+  S.units.push({
+    id:S.nextId++,q:s.q,r:s.r,type,
+    hp:t.hp,maxHp:t.hp,atk:t.atk,def:t.def,
+    movesLeft:t.moves+bn,maxMoves:t.moves+bn,
+    hasMoved:false,exhausted:false,
+    preferredTargetId:null,autoPath:[],onHold:false,stunnedUntil:0,evacuating:0,
+    skills:{},passives:{},evolutions:[],skillCDs:{}
+  });
+}
+function recalcHeroStats() {
+  const h=S.hero; if (!h) return;
+  let atk=h.baseAtk, def=h.baseDef, maxHp=h.baseMaxHp, moves=HERO_TEMPLATE.moves;
+  let manaBonus=0, weaponRange=2;
+  for (const slot of Object.values(S.inventory.equipment)) {
+    if (!slot) continue;
+    const d=ITEM_DEFS[slot.kind]; if (!d) continue;
+    atk+=d.atkBonus||0; def+=d.defBonus||0; maxHp+=d.hpBonus||0;
+    moves+=d.moveBonus||0; manaBonus+=d.manaBonus||0;
+    if (d.rangeOverride!=null && slot===S.inventory.equipment.weaponL) weaponRange=d.rangeOverride;
+  }
+  h.atk=atk; h.def=def; h.maxHp=maxHp;
+  if (h.hp>h.maxHp) h.hp=h.maxHp;
+  h.maxMoves=moves;
+  if (h.movesLeft>h.maxMoves) h.movesLeft=h.maxMoves;
+  h.weaponRange=weaponRange; h.equipManaBonus=manaBonus;
+}
+
+// ========== UTILS ==========
+function addLog(text,hl=false,cls=''){S.log.push({text,hl,cls});if(S.log.length>120)S.log.shift();}
+function clampCamera() {
+  const ex=SIZE*SQRT3*R+SIZE*SQRT3/2, ey=SIZE*1.5*R+SIZE;
+  const mw=2*ex, mh=2*ey;
+  if (mw<=W) camX=0; else camX=Math.max(W-ex-CX,Math.min(ex-CX,camX));
+  if (mh<=H) camY=0; else camY=Math.max(H-ey-CY,Math.min(ey-CY,camY));
+}
+function hexToPixel(q,r){return {x:CX+camX+SIZE*SQRT3*(q+r/2),y:CY+camY+SIZE*1.5*r};}
+function pixelToHex(x,y){const wx=x-CX-camX,wy=y-CY-camY;return hexRound((SQRT3/3*wx-wy/3)/SIZE,(2/3*wy)/SIZE);}
+function hexRound(q,r){let s=-q-r,rq=Math.round(q),rr=Math.round(r),rs=Math.round(s);const dq=Math.abs(rq-q),dr=Math.abs(rr-r),ds=Math.abs(rs-s);if(dq>dr&&dq>ds)rq=-rr-rs;else if(dr>ds)rr=-rq-rs;return {q:rq,r:rr};}
+function isHexVisible(q,r){const p=hexToPixel(q,r);return p.x>-SIZE*2&&p.x<W+SIZE*2&&p.y>-SIZE*2&&p.y<H+SIZE*2;}
+function terrainAt(q,r){return TERRAIN.get(key(q,r))||null;}
+function terrainBonus(q,r){const m=terrainAt(q,r);if(m==='atk')return {atk:2,def:0};if(m==='def')return {atk:0,def:2};if(m==='curse')return {atk:1,def:-2};return {atk:0,def:0};}
+function effectiveAtk(u){if(!u)return 0;let a=u.atk+terrainBonus(u.q,u.r).atk;if(!u.isHero)a+=S.armyAtkBonus||0;return a;}
+function effectiveDef(u){if(!u)return 0;let d=u.def+terrainBonus(u.q,u.r).def;if(!u.isHero)d+=S.armyDefBonus||0;return d;}
+function unitRange(u) {
+  if (!u) return 1;
+  if (u.isHero) return (u.weaponRange||2)+(u.rangeBonus||0);
+  if (u.type&&UNIT_TYPES[u.type]) return UNIT_TYPES[u.type].range;
+  if (u.type&&ENEMY_TYPES[u.type]) return ENEMY_TYPES[u.type].range;
+  return u.range||1;
+}
+function barracksAt(q,r){return S.barracks.find(b=>b.q===q&&b.r===r)||null;}
+function entityAt(q,r){const u=S.units.find(u=>u.q===q&&u.r===r);if(u)return {kind:'unit',ref:u};const e=S.enemies.find(e=>e.q===q&&e.r===r);if(e)return {kind:'enemy',ref:e};return null;}
+function poiAt(q,r){return S.pois.find(p=>p.q===q&&p.r===r&&!p.looted);}
+function canSummonAt(q,r){if(!inMap(q,r)||entityAt(q,r))return false;const h=S.hero;return h&&h.hp>0&&adjacent(q,r,h.q,h.r);}
+function getSelectedUnit(){if(!S.selection||S.selection.type!=='unit')return null;return S.units.find(u=>u.id===S.selection.id)||null;}
+function isStunned(u){return !!(u&&u.stunnedUntil&&S.turn<=u.stunnedUntil);}
+function isEvacuating(u){return !!(u&&u.evacuating&&u.evacuating>0);}
+function isUnitInactive(u){return !u||u.exhausted||isStunned(u)||isEvacuating(u);}
+function canAttack(u){if(!u||u.exhausted||isStunned(u)||isEvacuating(u))return false;if(u.type==='archer'&&u.hasMoved)return false;return true;}
+function enemiesInRange(u){if(!u)return [];const r=unitRange(u);return S.enemies.filter(e=>hexDist(u.q,u.r,e.q,e.r)<=r);}
+function unitOnBarracks(u){return u?barracksAt(u.q,u.r):null;}
+function getSummonCost(){return Math.max(5,COST_SUMMON-(S.summonDiscount||0));}
+function getAoeBonus(caster){const src=caster||S.hero;if(!src||!src.passives)return {radius:0,mult:1};return {radius:src.passives.attractor||0,mult:1+(src.passives.candelabrador||0)*0.1};}
+function getCritChance(c){if(!c||!c.passives)return 0;return (c.passives.clover||0)*0.10;}
+function getHourglassBonus(c){if(!c||!c.passives)return 0;return c.passives.hourglass||0;}
+function getEnemySpeed(e){const base=e.speed||1;if(e.slowedUntil&&S.turn<=e.slowedUntil)return Math.max(1,base-1);return base;}
+
+function spawnGuard(poi) {
+  if (Math.random()<BOSS_CHANCE && !S.bossSpawned) {
+    S.bossSpawned=true;
+    const b=ENEMY_TYPES.boss;
+    S.enemies.push({id:S.nextId++,type:'boss',q:poi.q,r:poi.r,hp:b.hp,maxHp:b.hp,atk:b.atk,def:b.def,speed:b.speed,range:b.range,regen:b.regen,stunned:false,stationary:true,guard:true,alerted:false,isBoss:true,movedThisTurn:false,skillCd:5});
+    addLog('💀⚠️ БОСС · Тёмный рыцарь!',true,'lvl');
+    return;
+  }
+  const types=['warrior','archer','knight'];
+  const type=types[Math.floor(Math.random()*3)];
+  const b=ENEMY_TYPES[type];
+  S.enemies.push({id:S.nextId++,type,q:poi.q,r:poi.r,hp:b.hp,maxHp:b.hp,atk:b.atk,def:b.def,speed:b.speed,range:b.range,regen:b.regen,stunned:false,stationary:true,guard:true,alerted:false,movedThisTurn:false});
+}
+
+function incomeBreakdown() {
+  const items=[];
+  items.push({label:'🧙 Некромант',value:HERO_TEMPLATE.manaPerTurn,kind:'mana'});
+  const hb=(S.hero?S.hero.manaBonus:0)+(S.hero?(S.hero.equipManaBonus||0):0);
+  if (hb>0) items.push({label:'🧙 Бонус экип',value:hb,kind:'mana'});
+  for (const u of S.units) {
+    if (u.isHero||u.type!=='acolyte'||u.hasMoved) continue;
+    const k=key(u.q,u.r);
+    if (GOLD_ZONES.has(k)) items.push({label:'👤 Адепт (зол.)',value:GOLD_ACOLYTE_ZONE,kind:'gold'});
+    else if (BLUE_ZONES.has(k)) items.push({label:'👤 Адепт (син.)',value:MANA_ACOLYTE_BLUE,kind:'mana'});
+    else items.push({label:'👤 Адепт',value:MANA_ACOLYTE,kind:'mana'});
+  }
+  items.push({label:'💰 Базовый',value:GOLD_BASE,kind:'gold'});
+  if (S.goldBonus>0) items.push({label:'🪙 Золотая жила',value:S.goldBonus,kind:'gold'});
+  for (const u of S.units) if (!u.isHero&&['warrior','archer','knight','brute'].includes(u.type))
+    items.push({label:`⚔ ${UNIT_TYPES[u.type].name}`,value:-UPKEEP_PER_COMBAT,kind:'mana'});
+  return items;
+}
+function computeIncome() {
+  let mana=HERO_TEMPLATE.manaPerTurn+(S.hero?S.hero.manaBonus+(S.hero.equipManaBonus||0):0);
+  let gold=GOLD_BASE+(S.goldBonus||0);
+  for (const u of S.units) {
+    if (u.isHero||u.type!=='acolyte'||u.hasMoved) continue;
+    const k=key(u.q,u.r);
+    if (GOLD_ZONES.has(k)) gold+=GOLD_ACOLYTE_ZONE;
+    else if (BLUE_ZONES.has(k)) mana+=MANA_ACOLYTE_BLUE;
+    else mana+=MANA_ACOLYTE;
+  }
+  return {mana,gold};
+}
+function computeUpkeep() {let up=0;for (const u of S.units) if (!u.isHero&&['warrior','archer','knight','brute'].includes(u.type)) up+=UPKEEP_PER_COMBAT;return up;}
+function acolyteGen(u) {const k=key(u.q,u.r);if(GOLD_ZONES.has(k))return {type:'gold',amount:GOLD_ACOLYTE_ZONE,active:!u.hasMoved};if(BLUE_ZONES.has(k))return {type:'mana',amount:MANA_ACOLYTE_BLUE,active:!u.hasMoved};return {type:'mana',amount:MANA_ACOLYTE,active:!u.hasMoved};}
+
+// ========== ACTIONS ==========
+function summon(q,r) {
+  const cost=getSummonCost();
+  if (S.mana<cost||!canSummonAt(q,r)) return false;
+  S.mana-=cost;
+  const t=UNIT_TYPES.acolyte;
+  const bonus=S.armyMoveBonus||0;
+  const u={id:S.nextId++,q,r,type:'acolyte',hp:t.hp,maxHp:t.hp,atk:t.atk,def:t.def,movesLeft:t.moves+bonus,maxMoves:t.moves+bonus,hasMoved:true,exhausted:true,preferredTargetId:null,autoPath:[],onHold:false,stunnedUntil:0,evacuating:0,skills:{},passives:{},evolutions:[],skillCDs:{}};
+  S.units.push(u);
+  S.summonMode=false;
+  S.selection={type:'unit',id:u.id};
+  addLog(`✨ Адепт (${q},${r}). −${cost}💧`);
+  updateUI(); draw();
+  return true;
+}
+function addLoot(kind) {
+  let s=S.inventory.stash.findIndex(x=>x===null);
+  if (s!==-1){S.inventory.stash[s]={id:S.nextId++,kind};return;}
+  s=S.inventory.backpack.findIndex(x=>x===null);
+  if (s!==-1){S.inventory.backpack[s]={id:S.nextId++,kind};return;}
+  addLog('⚠ Инвентарь полон!');
+}
+function rollDrop(tk) {
+  const t=DROP_TABLES[tk];if(!t)return null;
+  const r=Math.random();
+  if (r<t.rare) return t.pool.rare.length?t.pool.rare[Math.floor(Math.random()*t.pool.rare.length)]:null;
+  if (r<t.rare+t.uncommon) return t.pool.uncommon.length?t.pool.uncommon[Math.floor(Math.random()*t.pool.uncommon.length)]:null;
+  return t.pool.common.length?t.pool.common[Math.floor(Math.random()*t.pool.common.length)]:null;
+}
+function checkPOI(u) {
+  const poi=poiAt(u.q,u.r); if (!poi||poi.kind==='evacuation') return;
+  const info=POI_INFO[poi.kind];
+  if (poi.kind==='chest') {
+    poi.looted=true;
+    const gold=30+Math.floor(Math.random()*31); S.gold+=gold;
+    const ik=rollDrop('chest'); if (ik) addLoot(ik);
+    addLog(`💰 ${info.name}! +${gold}${ik?', +'+ITEM_DEFS[ik].name:''}`,true);
+  } else if (poi.kind==='camp') {
+    poi.looted=true;
+    const gold=40+Math.floor(Math.random()*21); S.gold+=gold;
+    const ik=rollDrop('camp'); if (ik) addLoot(ik);
+    addLog(`🏴 ${info.name}! +${gold}${ik?', +'+ITEM_DEFS[ik].name:''}`,true);
+  } else if (poi.kind==='ruin') {
+    poi.looted=true;
+    const ik=rollDrop('ruin'); if (ik) addLoot(ik);
+    addLog(`🏛 ${info.name}!${ik?' +'+ITEM_DEFS[ik].name:''}`,true);
+  } else if (poi.kind==='shrine') {
+    poi.looted=true; S.hero.manaBonus+=3;
+    addLog('⛩ Святилище! +3💧/ход',true);
+  } else if (poi.kind==='pandora') {
+    poi.looted=true;
+    const opts=['acolyte','warrior','archer','brute'];
+    const pt=opts[Math.floor(Math.random()*opts.length)];
+    const spots=MAP.filter(h=>adjacent(h.q,h.r,poi.q,poi.r)&&!entityAt(h.q,h.r));
+    if (spots.length) {
+      const s=spots[Math.floor(Math.random()*spots.length)];
+      const t=UNIT_TYPES[pt]; const bn=S.armyMoveBonus||0;
+      S.units.push({id:S.nextId++,q:s.q,r:s.r,type:pt,hp:t.hp,maxHp:t.hp,atk:t.atk,def:t.def,movesLeft:t.moves+bn,maxMoves:t.moves+bn,hasMoved:false,exhausted:false,preferredTargetId:null,autoPath:[],onHold:false,stunnedUntil:0,evacuating:0,skills:{},passives:{},evolutions:[],skillCDs:{}});
+      addLog(`🎁 Пандора: ${t.name}!`,true);
+    }
+  }
+}
+function moveUnit(u,q,r) {
+  if (u.movesLeft<=0||u.exhausted||isStunned(u)||isEvacuating(u)) return false;
+  if (!inMap(q,r)||entityAt(q,r)) return false;
+  if (u.type==='knight') {if(!isKnightMove(u.q,u.r,q,r))return false;}
+  else {if(!adjacent(u.q,u.r,q,r))return false;}
+  u.q=q; u.r=r; u.movesLeft--; u.hasMoved=true; u.autoPath=[];
+  checkPOI(u); updateUI(); draw();
+  return true;
+}
+function setAutoPath(u,target) {
+  if (!u||isStunned(u)||isEvacuating(u)||!inMap(target.q,target.r)) return false;
+  if (u.q===target.q&&u.r===target.r) return false;
+  const dirs=u.type==='knight'?KNIGHT_DIRS:DIRS;
+  const q=[{q:u.q,r:u.r}],seen=new Set([key(u.q,u.r)]),prev=new Map();
+  let found=null;
+  while (q.length) {
+    const cur=q.shift();
+    if (cur.q===target.q&&cur.r===target.r){found=cur;break;}
+    for (const [dq,dr] of dirs) {
+      const nq=cur.q+dq,nr=cur.r+dr,k=key(nq,nr);
+      if (seen.has(k)||!inMap(nq,nr)) continue;
+      if (entityAt(nq,nr)&&!(nq===target.q&&nr===target.r)) continue;
+      seen.add(k); prev.set(k,key(cur.q,cur.r)); q.push({q:nq,r:nr});
+    }
+  }
+  if (!found) return false;
+  const path=[]; let c=key(found.q,found.r);
+  while (c!==undefined) {const [cq,cr]=c.split(',').map(Number);path.push({q:cq,r:cr});c=prev.get(c);}
+  path.reverse();
+  if (path.length<2) return false;
+  u.autoPath=path.slice(1);
+  addLog(`🚶 ${u.isHero?'Некромант':UNIT_TYPES[u.type].name}: → (${target.q},${target.r})`);
+  updateUI(); draw();
+  return true;
+}
+function canTrainAtBarracks(u){return u&&!u.isHero&&u.type==='acolyte'&&!!unitOnBarracks(u);}
+function trainUnit(unit,type) {
+  if (!unit||unit.type!=='acolyte'||S.gold<COST_UPGRADE||!unitOnBarracks(unit)||!UNIT_TYPES[type]) return;
+  S.gold-=COST_UPGRADE;
+  const t=UNIT_TYPES[type]; const bn=S.armyMoveBonus||0;
+  unit.type=type;
+  unit.atk=t.atk; unit.def=t.def; unit.maxHp=t.hp; unit.hp=t.hp;
+  unit.maxMoves=t.moves+bn; unit.movesLeft=t.moves+bn;
+  unit.hasMoved=true; unit.exhausted=true; unit.preferredTargetId=null;
+  addLog(`⚔ Обучен ${t.name.toLowerCase()}!`,true);
+  updateUI(); draw();
+}
+function addXp(amount) {
+  if (!S.hero||S.hero.hp<=0) return;
+  const u=S.hero; u.xp+=amount;
+  let th=u.level*10;
+  while (u.xp>=th) {u.xp-=th;u.level++;addLog(`⬆ Уровень ${u.level}!`,false,'lvl');S.pendingLevelUps++;th=u.level*10;}
+}
+function startEvacuation() {
+  if (!S.hero||S.hero.evacuating>0) return;
+  S.hero.evacuating=3;
+  addLog('🚪 Эвакуация начата! 3 хода уязвимости.',true,'lvl');
+  updateUI(); draw();
+}
+async function completeEvacuation() {
+  S.gameOver=true;
+  S.meta.gold+=S.gold;
+  S.meta.inventory=deepClone(S.inventory);
+  S.meta.runsCompleted=(S.meta.runsCompleted||0)+1;
+  saveMeta();
+  document.getElementById('over').className='show';
+  document.getElementById('overTitle').textContent='🚪 Эвакуация успешна!';
+  document.getElementById('overTitle').className='';
+  document.getElementById('overText').innerHTML=`Золото в банк: <b style="color:#ffd700">+${S.gold}🪙</b><br>Раунд ${S.round}, ход ${S.turn}<br><br><small style="color:#6ee7a0">Золото и вещи сохранены в мета-прогресс</small>`;
+  updateUI(); draw();
+}
+function loseGame() {
+  S.gameOver=true;
+  const saved=Math.floor(S.gold*0.25);
+  S.meta.gold+=saved;
+  saveMeta();
+  document.getElementById('over').className='show';
+  document.getElementById('overTitle').textContent='Герой пал';
+  document.getElementById('overTitle').className='lose';
+  document.getElementById('overText').innerHTML=`Раунд ${S.round}, ход ${S.turn}<br><br><small>Сохранено: <b style="color:#ffd700">${saved}🪙</b> (25% золота)<br><span style="color:#f87171">Вещи потеряны</span></small>`;
+  updateUI(); draw();
+}
+
+// ========== COMBAT ==========
+function getDirection(q1,r1,q2,r2) {
+  const dq=q2-q1,dr=r2-r1;
+  if (dq===0&&dr===0) return [0,0];
+  let best=DIRS[0],bestDot=-Infinity;
+  for (const [a,b] of DIRS) {
+    const len=Math.sqrt(dq*dq+dr*dr+dq*dr)||1;
+    const dot=(dq*a+dr*b)/len;
+    if (dot>bestDot) {bestDot=dot;best=a;}
+  }
+  return best;
+}
+function getPos(ref) {
+  if (ref.animFrom&&ref.animTo) {
+    const t=Math.min(1,(performance.now()-ref.animStart)/ref.animDuration);
+    const e=t*t*(3-2*t);
+    return {x:ref.animFrom.x+(ref.animTo.x-ref.animFrom.x)*e,y:ref.animFrom.y+(ref.animTo.y-ref.animFrom.y)*e};
+  }
+  return hexToPixel(ref.q,ref.r);
+}
+async function animateStep(ref,nq,nr) {
+  const from=getPos(ref),to=hexToPixel(nq,nr);
+  ref.q=nq; ref.r=nr;
+  ref.animFrom=from; ref.animTo=to; ref.animStart=performance.now(); ref.animDuration=170;
+  await sleep(170);
+  delete ref.animFrom; delete ref.animTo;
+}
+async function animateAttack(a,t) {
+  const from=getPos(a),to=getPos(t);
+  if (unitRange(a)>1) {
+    visualProj.push({x1:from.x,y1:from.y,x2:to.x,y2:to.y,startTime:performance.now(),duration:240});
+    await sleep(240);
+  } else {
+    slashes.push({x:to.x,y:to.y,startTime:performance.now(),duration:220});
+    await sleep(180);
+  }
+}
+function damageUnit(u,dmg) {
+  u.hp-=dmg;
+  const p=getPos(u);
+  floaters.push({x:p.x,y:p.y-12,text:`-${dmg}`,color:'#ff6666',life:1.1});
+  if (u.hp<=0) {
+    if (u.isHero) {S.hero.hp=0;loseGame();return;}
+    S.units=S.units.filter(x=>x.id!==u.id);
+    addLog(`${UNIT_TYPES[u.type].name} погиб.`);
+  }
+}
+function damageEnemy(e,dmg,caster) {
+  let final=dmg, crit=false;
+  if (caster) {
+    const cc=getCritChance(caster);
+    if (cc>0&&Math.random()<cc) {final=Math.floor(dmg*2);crit=true;}
+  }
+  e.hp-=final;
+  e.alerted=true;
+  const p=getPos(e);
+  floaters.push({x:p.x,y:p.y-12,text:crit?`CRIT -${final}`:`-${final}`,color:crit?'#ffee44':'#ff6666',life:crit?1.5:1.1});
+}
+function onEnemyKilled(e,caster) {
+  S.enemies=S.enemies.filter(x=>x.id!==e.id);
+  if (e.isBoss) {
+    S.gold+=GOLD_PER_BOSS; addXp(XP_BOSS);
+    addLog(`💀💀 БОСС! +${GOLD_PER_BOSS}🪙 +${XP_BOSS}XP`,true,'lvl');
+    for (let i=0;i<2;i++){const ik=rollDrop('boss');if(ik)addLoot(ik);}
+  } else {
+    S.gold+=GOLD_PER_KILL;
+    let xp=XP_KILL;
+    if (e.type==='warrior') xp=XP_WARRIOR;
+    else if (e.type==='archer') xp=XP_ARCHER;
+    else if (e.type==='knight') xp=XP_KNIGHT;
+    else if (e.type==='zombie') xp=XP_ZOMBIE;
+    addXp(xp);
+    const p=getPos(e);
+    floaters.push({x:p.x,y:p.y-22,text:`+${xp}XP`,color:'#ffd700',life:1.3});
+  }
+}
+async function friendlyAttackPhase() {
+  for (const u of [...S.units]) {
+    if (!S.units.includes(u)||S.gameOver) continue;
+    if (!canAttack(u)) continue;
+    const targets=enemiesInRange(u);
+    if (!targets.length) continue;
+    if (u.type==='knight') {
+      const primary=u.preferredTargetId?(targets.find(t=>t.id===u.preferredTargetId)||targets[0]):targets[0];
+      await animateAttack(u,primary);
+      const aff=S.enemies.filter(e=>e.id===primary.id||adjacent(e.q,e.r,primary.q,primary.r));
+      for (const a of aff) {
+        if (!S.enemies.includes(a)) continue;
+        const dmg=Math.max(1,effectiveAtk(u)-a.def);
+        damageEnemy(a,dmg,u);
+        if (Math.random()<STUN_CHANCE) a.stunned=true;
+        if (a.hp<=0) onEnemyKilled(a,u);
+      }
+      await sleep(80); continue;
+    }
+    if (u.type==='brute') {
+      const primary=u.preferredTargetId?(targets.find(t=>t.id===u.preferredTargetId)||targets[0]):targets[0];
+      await animateAttack(u,primary);
+      const dmg=Math.max(1,effectiveAtk(u)-primary.def);
+      damageEnemy(primary,dmg,u);
+      if (Math.random()<0.5&&primary.hp>0) {
+        const adjs=DIRS.map(([a,b])=>({q:primary.q+a,r:primary.r+b,d:hexDist(u.q,u.r,primary.q+a,primary.r+b)})).filter(o=>o.d===hexDist(u.q,u.r,primary.q,primary.r)+1);
+        if (adjs.length) {adjs.sort((a,b)=>b.d-a.d);const s=adjs[0];if(inMap(s.q,s.r)&&!entityAt(s.q,s.r)){primary.q=s.q;primary.r=s.r;}}
+      }
+      if (primary.hp<=0) onEnemyKilled(primary,u);
+      await sleep(80); continue;
+    }
+    let target=u.preferredTargetId?targets.find(t=>t.id===u.preferredTargetId):null;
+    if (!target) target=targets[0];
+    await animateAttack(u,target);
+    if (!S.enemies.includes(target)) continue;
+    const dmg=Math.max(1,effectiveAtk(u)-target.def);
+    damageEnemy(target,dmg,u);
+    if (target.hp<=0) onEnemyKilled(target,u);
+    await sleep(60);
+  }
+}
+function findEnemyTarget(e) {
+  const range=e.range||1;
+  let best=null,bd=Infinity;
+  for (const u of S.units) {const d=hexDist(e.q,e.r,u.q,u.r);if(d<=range&&d<bd){best={kind:'unit',ref:u};bd=d;}}
+  return best;
+}
+async function moveEnemyTowardTarget(e) {
+  const range=e.range||1;
+  const isGoal=(q,r)=>S.units.some(u=>hexDist(q,r,u.q,u.r)<=range);
+  const passable=(q,r)=>{const ent=entityAt(q,r);return !ent||ent.kind==='enemy';};
+  const speed=getEnemySpeed(e);
+  let steps=speed, moved=false;
+  while (steps>0) {
+    if (findEnemyTarget(e)) break;
+    const q=[{q:e.q,r:e.r}],seen=new Set([key(e.q,e.r)]),prev=new Map();
+    let found=null;
+    while (q.length) {
+      const cur=q.shift();
+      if (!(cur.q===e.q&&cur.r===e.r)&&isGoal(cur.q,cur.r)){found=cur;break;}
+      for (const [dq,dr] of DIRS) {
+        const nq=cur.q+dq,nr=cur.r+dr,k=key(nq,nr);
+        if (seen.has(k)||!inMap(nq,nr)||!passable(nq,nr)) continue;
+        seen.add(k); prev.set(k,key(cur.q,cur.r)); q.push({q:nq,r:nr});
+      }
+    }
+    if (!found) break;
+    const path=[]; let c=key(found.q,found.r);
+    while (c!==undefined){const [cq,cr]=c.split(',').map(Number);path.push({q:cq,r:cr});c=prev.get(c);}
+    path.reverse();
+    if (path.length<2) break;
+    const next=path[1];
+    if (entityAt(next.q,next.r)) break;
+    await animateStep(e,next.q,next.r);
+    moved=true; steps--;
+  }
+  if (moved) e.movedThisTurn=true;
+}
+async function enemyAttack(e,target) {
+  await animateAttack(e,target.ref);
+  if (S.gameOver) return;
+  const et=ENEMY_TYPES[e.type]||ENEMY_TYPES.grunt;
+  if (!S.units.includes(target.ref)) return;
+  const dmg=Math.max(1,e.atk-effectiveDef(target.ref));
+  addLog(`${et.name} атакует (${dmg}).`);
+  damageUnit(target.ref,dmg);
+}
+async function processBossSkill(e) {
+  if (e.type!=='boss'||S.gameOver) return;
+  e.skillCd=(e.skillCd??5)-1;
+  if (e.skillCd>0) return;
+  const targets=S.units.filter(u=>hexDist(e.q,e.r,u.q,u.r)<=2&&u.hp>0);
+  if (!targets.length) return;
+  addLog('⚡ БОСС: Тёмная Нова!',true,'abl');
+  for (const u of targets) {
+    const dmg=Math.max(1,15-effectiveDef(u));
+    damageUnit(u,dmg);
+    if (S.units.includes(u)) u.stunnedUntil=S.turn+1;
+    if (S.gameOver) return;
+  }
+  e.skillCd=5;
+  const ring=RINGS[2];
+  S.shockZones.push({hexes:ring.map(o=>({q:e.q+o.q,r:e.r+o.r})).filter(h=>inMap(h.q,h.r)),dmg:0,life:2,evolved:false,ownerId:null,visual:true});
+  await sleep(300);
+}
+async function enemyPhase() {
+  for (const e of [...S.enemies]) {
+    if (!S.enemies.includes(e)||S.gameOver) continue;
+    if (e.stunned) {e.stunned=false;continue;}
+    e.movedThisTurn=false;
+    // Boss skill
+    if (e.isBoss) { await processBossSkill(e); if (S.gameOver) return; }
+    if (e.stationary&&!e.alerted) {
+      const target=findEnemyTarget(e);
+      if (target) {await enemyAttack(e,target);if(S.gameOver)return;await sleep(100);}
+      continue;
+    }
+    let target=findEnemyTarget(e);
+    if (!target) {
+      await moveEnemyTowardTarget(e);
+      const et=ENEMY_TYPES[e.type];
+      if (e.movedThisTurn&&et&&et.canAttackAfterMove===false) {await sleep(30);continue;}
+      target=findEnemyTarget(e);
+    }
+    if (target) {await enemyAttack(e,target);if(S.gameOver)return;await sleep(60);}
+  }
+}
+async function processAutoMoves() {
+  for (const u of [...S.units]) {
+    if (!S.units.includes(u)||S.gameOver) continue;
+    if (!u.autoPath||!u.autoPath.length) continue;
+    if (isStunned(u)||u.onHold||isEvacuating(u)) {u.autoPath=[];continue;}
+    if (u.movesLeft<=0) continue;
+    while (u.movesLeft>0&&u.autoPath.length>0) {
+      const next=u.autoPath[0];
+      if (entityAt(next.q,next.r)) {u.autoPath=[];break;}
+      const ok=u.type==='knight'?isKnightMove(u.q,u.r,next.q,next.r):adjacent(u.q,u.r,next.q,next.r);
+      if (!ok) {u.autoPath=[];break;}
+      await animateStep(u,next.q,next.r);
+      u.autoPath.shift(); u.movesLeft--; u.hasMoved=true;
+      checkPOI(u);
+    }
+  }
+}
+
+// ========== SKILLS ==========
+async function tickProjectiles() {
+  for (const p of [...S.projectiles]) {
+    if (!S.projectiles.includes(p)) continue;
+    p.life--;
+    if (p.life<=0){S.projectiles=S.projectiles.filter(x=>x!==p);continue;}
+    if (p.kind==='cross'&&p.pause>0){p.pause--;continue;}
+    let tq=p.q,tr=p.r;
+    if (p.kind==='cross'&&p.returning){tq=S.hero.q;tr=S.hero.r;}
+    else {
+      const t=S.enemies.find(e=>e.id===p.targetEnemyId);
+      if (t){tq=t.q;tr=t.r;}
+      else {const ne=findNearestEnemyTo(p.q,p.r,12);if(!ne){S.projectiles=S.projectiles.filter(x=>x!==p);continue;}p.targetEnemyId=ne.id;tq=ne.q;tr=ne.r;}
+    }
+    for (let s=0;s<p.speed;s++) {
+      if (p.q===tq&&p.r===tr) break;
+      let dq,dr;
+      if (p.spiral) {
+        p.spiralCounter=(p.spiralCounter||0)+1;
+        if (p.spiralCounter%2===0) {
+          const [tq2,tr2]=getDirection(p.q,p.r,tq,tr);
+          const idx=DIRS.findIndex(([a,b])=>a===tq2&&b===tr2);
+          if (idx!==-1){const ni=(idx+1)%6;dq=DIRS[ni][0];dr=DIRS[ni][1];}
+          else {dq=tq2;dr=tr2;}
+        } else {[dq,dr]=getDirection(p.q,p.r,tq,tr);}
+      } else {[dq,dr]=getDirection(p.q,p.r,tq,tr);}
+      p.q+=dq; p.r+=dr;
+      if (!inMap(p.q,p.r)){S.projectiles=S.projectiles.filter(x=>x!==p);break;}
+      const hit=S.enemies.find(e=>e.q===p.q&&e.r===p.r);
+      if (hit) {
+        const caster=p.ownerId?S.units.find(u=>u.id===p.ownerId):null;
+        damageEnemy(hit,p.dmg,caster);
+        if (p.knockback) {
+          const [kq,kr]=getDirection(S.hero.q,S.hero.r,hit.q,hit.r);
+          const nq=hit.q+kq,nr=hit.r+kr;
+          if (inMap(nq,nr)&&!entityAt(nq,nr)){hit.q=nq;hit.r=nr;}
+        }
+        if (hit.hp<=0) onEnemyKilled(hit,caster);
+        if (p.pierce>0) p.pierce--;
+        else {S.projectiles=S.projectiles.filter(x=>x!==p);break;}
+      }
+      if (p.kind==='cross') {
+        if (!p.returning&&hexDist(p.q,p.r,tq,tr)<=1) {
+          if (p.pauseMax&&p.pause===0) p.pause=p.pauseMax;
+          else p.returning=true;
+        }
+        if (p.returning&&p.q===S.hero.q&&p.r===S.hero.r) {
+          if (p.evolved) {
+            for (let a=0;a<6;a++) {
+              const [oq,or]=DIRS[a];
+              const nq=S.hero.q+oq,nr=S.hero.r+or;
+              if (!inMap(nq,nr)) continue;
+              const hO=S.enemies.find(e=>e.q===nq&&e.r===nr);
+              if (hO){damageEnemy(hO,p.dmg,p.ownerId?S.units.find(u=>u.id===p.ownerId):null);if(hO.hp<=0)onEnemyKilled(hO,null);}
+            }
+          }
+          S.projectiles=S.projectiles.filter(x=>x!==p);
+          break;
+        }
+      }
+    }
+  }
+}
+async function tickZones() {
+  for (const z of [...S.zones]) {
+    if (!S.zones.includes(z)) continue;
+    z.life--;
+    if (z.followHero&&S.hero) {
+      const oldQ=z.hexes[0].q,oldR=z.hexes[0].r;
+      const tQ=S.hero.q+z.heroOffsetQ,tR=S.hero.r+z.heroOffsetR;
+      const d=hexDist(oldQ,oldR,tQ,tR);
+      if (d>0&&d<=3) {
+        const [dq,dr]=getDirection(oldQ,oldR,tQ,tR);
+        z.hexes=z.hexes.map(h=>({q:h.q+dq,r:h.r+dr}));
+        z.heroOffsetQ-=dq; z.heroOffsetR-=dr;
+      }
+    }
+    const ticks=z.evolved?2:1;
+    const caster=z.ownerId?S.units.find(u=>u.id===z.ownerId):null;
+    for (let ti=0;ti<ticks;ti++) {
+      for (const h of z.hexes) {
+        const hits=S.enemies.filter(e=>e.q===h.q&&e.r===h.r);
+        for (const e of hits) {
+          damageEnemy(e,z.dmg,caster);
+          if (z.slow) e.slowedUntil=S.turn+2;
+          if (e.hp<=0) onEnemyKilled(e,caster);
+        }
+      }
+    }
+    if (z.life<=0) S.zones=S.zones.filter(x=>x!==z);
+  }
+}
+async function tickBooks() {
+  for (const b of [...S.books]) {
+    if (!S.books.includes(b)) continue;
+    b.life--;
+    if (b.life<=0){S.books=S.books.filter(x=>x!==b);continue;}
+    const ringLen=RINGS[b.radius].length;
+    b.idx=(b.idx+b.speed)%ringLen;
+    const caster=b.ownerId?S.units.find(u=>u.id===b.ownerId):null;
+    const cq=caster?caster.q:S.hero.q;
+    const cr=caster?caster.r:S.hero.r;
+    const off=RINGS[b.radius][b.idx];
+    const aq=cq+off.q,ar=cr+off.r;
+    if (!inMap(aq,ar)) continue;
+    let hits=S.enemies.filter(e=>e.q===aq&&e.r===ar);
+    if (b.evolved) {
+      for (const [dq,dr] of DIRS) {
+        const nq=aq+dq,nr=ar+dr;
+        hits=hits.concat(S.enemies.filter(e=>e.q===nq&&e.r===nr));
+      }
+    }
+    for (const h of hits) {
+      if (!S.enemies.includes(h)) continue;
+      damageEnemy(h,b.dmg,caster);
+      if (b.knockback) {
+        const [kq,kr]=getDirection(cq,cr,h.q,h.r);
+        const nq=h.q+kq,nr=h.r+kr;
+        if (inMap(nq,nr)&&!entityAt(nq,nr)){h.q=nq;h.r=nr;}
+      }
+      if (h.hp<=0) onEnemyKilled(h,caster);
+    }
+  }
+}
+async function tickShockZones() {
+  for (const z of [...S.shockZones]) {
+    if (!S.shockZones.includes(z)) continue;
+    z.life--;
+    if (z.life<=0){S.shockZones=S.shockZones.filter(x=>x!==z);continue;}
+    if (z.visual) continue;
+    const caster=z.ownerId?S.units.find(u=>u.id===z.ownerId):null;
+    for (const h of z.hexes) {
+      const hits=S.enemies.filter(e=>e.q===h.q&&e.r===h.r);
+      for (const e of hits) {
+        damageEnemy(e,z.dmg,caster);
+        if (e.hp<=0) onEnemyKilled(e,caster);
+      }
+    }
+  }
+}
+async function processSkillsTurn() {
+  await tickProjectiles();
+  await tickBooks();
+  await tickZones();
+  await tickShockZones();
+  for (const caster of S.units) {
+    if (caster.hp<=0) continue;
+    if (isStunned(caster)) continue;
+    if (isEvacuating(caster)) continue;
+    if (!caster.skills) continue;
+    for (const [sid,lv] of Object.entries(caster.skills)) {
+      if (!lv) continue;
+      const def=SKILL_REGISTRY[sid];
+      if (!def) continue;
+      if (def.passive) {if(!def.shouldFire||def.shouldFire(caster,lv))def.execute(caster,lv);continue;}
+      caster.skillCDs=caster.skillCDs||{};
+      caster.skillCDs[sid]=(caster.skillCDs[sid]||0)-1;
+      if (caster.skillCDs[sid]>0) continue;
+      if (def.shouldFire&&!def.shouldFire(caster,lv)) continue;
+      def.execute(caster,lv);
+      caster.skillCDs[sid]=def.cooldown(caster,lv);
+    }
+  }
+  await sleep(60);
+}
+
+// ========== CARDS ==========
+function generateCardPool() {
+  const h=S.hero;
+  const cards=[];
+  const owned=Object.entries(h.skills).filter(([k,v])=>v>0);
+  if (owned.length<Object.keys(SKILL_REGISTRY).length) {
+    for (const [id,def] of Object.entries(SKILL_REGISTRY)) {
+      if (h.skills[id]===0) cards.push({type:'skill-new',id,icon:def.icon,name:def.name,desc:def.desc(1),label:'НОВЫЙ',color:def.color});
+    }
+  }
+  for (const [id,lv] of owned) {
+    const def=SKILL_REGISTRY[id];
+    if (lv>=def.maxLevel) continue;
+    cards.push({type:'skill-up',id,icon:def.icon,name:def.name,desc:def.desc(lv+1),label:`Lv ${lv+1}/${def.maxLevel}`,level:lv});
+  }
+  for (const [id,def] of Object.entries(PASSIVE_DEFS)) {
+    const lv=h.passives[id]||0;
+    if (lv>=def.maxLevel) continue;
+    cards.push({type:'passive',id,icon:def.icon,name:def.name,desc:`${def.desc} (Lv ${lv+1})`,label:lv>0?`Lv ${lv+1}`:'НОВЫЙ',level:lv});
+  }
+  for (const [evoId,evo] of Object.entries(EVOLUTIONS)) {
+    if (h.evolutions.includes(evoId)) continue;
+    const sLv=h.skills[evo.fromSkill]||0;
+    const pLv=h.passives[evo.fromPassive]||0;
+    if (sLv>=SKILL_REGISTRY[evo.fromSkill].maxLevel&&pLv>=1) {
+      cards.push({type:'evolution',id:evoId,icon:evo.icon,name:evo.name,desc:evo.desc,label:'ЭВОЛЮЦИЯ',isEvo:true});
+    }
+  }
+  return cards;
+}
+function showLevelUpModal() {
+  return new Promise(resolve=>{
+    const pool=generateCardPool();
+    if (pool.length===0) {S.gold+=50;addLog('⭐ +50🪙',false,'lvl');resolve();return;}
+    const sh=pool.sort(()=>Math.random()-0.5);
+    const evos=sh.filter(c=>c.type==='evolution');
+    const upg=sh.filter(c=>c.type==='skill-up');
+    const news=sh.filter(c=>c.type==='skill-new');
+    const pass=sh.filter(c=>c.type==='passive');
+    const sel=[];
+    if (evos.length) sel.push(evos[0]);
+    while (sel.length<3) {
+      const rem=[...upg,...news,...pass].filter(c=>!sel.includes(c));
+      if (!rem.length) break;
+      sel.push(rem[Math.floor(Math.random()*rem.length)]);
+    }
+    while (sel.length<3) sel.push({type:'fallback',icon:'💰',name:'Золото',desc:'+30 золота'});
+    const el=document.getElementById('lumCards');
+    el.innerHTML=sel.map((c,i)=>{
+      const cls=c.isEvo?'evo':(c.type==='skill-new'?'new-skill':'');
+      return `<div class="lum-card ${cls}" data-card-idx="${i}"><span class="lvl-badge">${c.label}</span><span class="icon">${c.icon}</span><div class="name">${c.name}</div><div class="desc">${c.desc}</div></div>`;
+    }).join('');
+    document.getElementById('levelUpModal').classList.add('show');
+    const h=ev=>{
+      const card=ev.target.closest('.lum-card');
+      if (!card) return;
+      applyCard(sel[parseInt(card.dataset.cardIdx)]);
+      document.getElementById('levelUpModal').classList.remove('show');
+      el.removeEventListener('click',h);
+      updateUI(); draw(); resolve();
+    };
+    el.addEventListener('click',h);
+  });
+}
+function applyCard(card) {
+  const h=S.hero;
+  if (card.type==='fallback') {S.gold+=30;return;}
+  if (card.type==='skill-new') {h.skills[card.id]=1;h.skillCDs[card.id]=0;addLog(`⭐ Новый: ${card.name}`,false,'lvl');}
+  else if (card.type==='skill-up') {h.skills[card.id]++;addLog(`⬆ ${card.name} → Lv ${h.skills[card.id]}`,false,'lvl');}
+  else if (card.type==='passive') {h.passives[card.id]++;if(card.id==='tomato')h.regen++;addLog(`⬆ ${card.name} Lv ${h.passives[card.id]}`,false,'lvl');}
+  else if (card.type==='evolution') {h.evolutions.push(card.id);addLog(`✨ ЭВОЛЮЦИЯ: ${card.name}!`,true,'evo');}
+}
+
+// ========== END TURN ==========
+async function doEndTurn() {
+  if (S.gameOver||isAnimating) return;
+  isAnimating=true;
+  try {
+    S.selection=null; S.summonMode=false;
+    phase='move'; updateUI(); draw(); await sleep(80);
+    await processAutoMoves();
+    if (S.gameOver) return;
+    phase='friendly'; updateUI(); draw(); await sleep(80);
+    await friendlyAttackPhase();
+    if (S.gameOver) return;
+    phase='skills'; updateUI(); draw(); await sleep(60);
+    await processSkillsTurn();
+    if (S.gameOver) return;
+    while (S.pendingLevelUps>0) {S.pendingLevelUps--;await showLevelUpModal();}
+    phase='enemy'; updateUI(); draw(); await sleep(80);
+    await enemyPhase();
+    if (S.gameOver) return;
+    phase='cleanup';
+    applyRegen(); applyIncomeAndUpkeep();
+    if (S.gameOver) return;
+    // Эвакуация тик
+    if (S.hero&&S.hero.evacuating>0) {
+      S.hero.evacuating--;
+      if (S.hero.evacuating===0) {await completeEvacuation();return;}
+      addLog(`🚪 Эвакуация: осталось ${S.hero.evacuating} ход.`,true);
+    }
+    S.turn++;
+    const newRound=Math.floor((S.turn-1)/ROUND_LENGTH)+1;
+    if (newRound>S.round) {S.round=newRound;addLog(`════ РАУНД ${S.round} ════`,true);}
+    if (S.turn-S.lastPoiSpawnTurn>=POI_SPAWN_INTERVAL) {S.lastPoiSpawnTurn=S.turn;spawnPoi();}
+    const inc=computeIncome();
+    addLog(`— Ход ${S.turn}: +${inc.mana}💧 +${inc.gold}🪙 —`);
+    for (const u of S.units) {
+      const bonus=u.isHero?0:(S.armyMoveBonus||0);
+      u.movesLeft=u.maxMoves+bonus;
+      u.hasMoved=false; u.exhausted=false;
+      if (u.armorBreak) u.armorBreak=0;
+    }
+    spawnWave();
+    saveGame();
+  } catch(err) {
+    console.error(err);
+    addLog(`⚠ Ошибка: ${err.message||err}`,true);
+  } finally {
+    isAnimating=false; phase=null;
+    updateUI(); draw();
+  }
+}
+function applyRegen() {
+  for (const u of S.units) {
+    const r=u.isHero?u.regen:UNIT_TYPES[u.type].regen;
+    if (u.hp<u.maxHp&&u.hp>0) u.hp=Math.min(u.maxHp,u.hp+r);
+  }
+}
+function applyIncomeAndUpkeep() {
+  const inc=computeIncome();
+  S.mana+=inc.mana; S.gold+=inc.gold;
+  for (const u of [...S.units]) {
+    if (u.isHero||!['warrior','archer','knight','brute'].includes(u.type)) continue;
+    if (S.mana>=UPKEEP_PER_COMBAT) S.mana-=UPKEEP_PER_COMBAT;
+    else {
+      u.hp-=10;
+      addLog(`${UNIT_TYPES[u.type].name} голодает: −10 HP.`,true);
+      if (u.hp<=0) {S.units=S.units.filter(x=>x.id!==u.id);addLog(`${UNIT_TYPES[u.type].name} погиб.`);}
+    }
+  }
+}
+function spawnPoi() {
+  const kinds=['chest','chest','chest','camp','ruin','shrine','pandora'];
+  const k=kinds[Math.floor(Math.random()*kinds.length)];
+  const spots=MAP.filter(h=>{
+    if (isEdge(h.q,h.r)||entityAt(h.q,h.r)||poiAt(h.q,h.r)||barracksAt(h.q,h.r)) return false;
+    if (hexDist(h.q,h.r,S.hero.q,S.hero.r)<4) return false;
+    return true;
+  });
+  if (!spots.length) return;
+  const s=spots[Math.floor(Math.random()*spots.length)];
+  const poi={q:s.q,r:s.r,kind:k,looted:false};
+  S.pois.push(poi);
+  if (POI_INFO[k].guarded) spawnGuard(poi);
+  addLog(`📍 ${POI_INFO[k].name}!`,false,'abl');
+}
+function spawnWave() {
+  if (S.turn<3) return;
+  const isFirst=S.lastWaveTurn===0;
+  if (!isFirst&&S.turn-S.lastWaveTurn<5) return;
+  if (isFirst) {S.hordeCount=8;S.lastWaveTurn=3;}
+  else {S.hordeCount=Math.ceil(S.hordeCount*1.5);S.lastWaveTurn=S.turn;}
+  const statMult=Math.pow(1.5,S.round-1);
+  const total=Math.min(30,S.hordeCount);
+  let spawned=0;
+  for (let i=0;i<total;i++) {
+    const r=Math.random();
+    let type;
+    if (r<0.80) type='grunt';
+    else if (r<0.95) type='zombie';
+    else type=['warrior','archer','knight'][Math.floor(Math.random()*3)];
+    const base=ENEMY_TYPES[type];
+    const hp=Math.max(1,Math.floor(base.hp*statMult));
+    const atk=Math.max(1,Math.floor(base.atk*statMult));
+    const edges=MAP.filter(h=>isEdge(h.q,h.r)&&!entityAt(h.q,h.r)&&!poiAt(h.q,h.r)&&!barracksAt(h.q,h.r));
+    if (!edges.length) return;
+    const h=edges[Math.floor(Math.random()*edges.length)];
+    S.enemies.push({id:S.nextId++,type,q:h.q,r:h.r,hp,maxHp:hp,atk,def:base.def,speed:base.speed,range:base.range,regen:base.regen,stunned:false,alerted:false,movedThisTurn:false,stationary:false});
+    spawned++;
+  }
+  addLog(`⚠ ОРДА: ${spawned} врагов (${Math.round(total*0.80)} гоблинов, ${Math.round(total*0.15)} зомби)`,true,'lvl');
+}
+
+// ========== DRAWING ==========
+function drawHex(cx,cy,size,fill,stroke,lw=1.5) {
+  ctx.beginPath();
+  for (let i=0;i<6;i++) {
+    const a=Math.PI/180*(60*i-30);
+    const x=cx+size*Math.cos(a),y=cy+size*Math.sin(a);
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  }
+  ctx.closePath();
+  ctx.fillStyle=fill; ctx.fill();
+  ctx.strokeStyle=stroke; ctx.lineWidth=lw; ctx.stroke();
+}
+function drawHpBar(x,y,w,pct) {
+  const h=4.5;
+  ctx.fillStyle='rgba(0,0,0,.7)'; ctx.fillRect(x-w/2-1,y-h/2-1,w+2,h+2);
+  ctx.fillStyle='rgba(30,40,55,1)'; ctx.fillRect(x-w/2,y-h/2,w,h);
+  ctx.fillStyle=pct>.5?'#4ade80':pct>.25?'#facc15':'#ef4444';
+  ctx.fillRect(x-w/2,y-h/2,w*Math.max(0,pct),h);
+}
+function drawReadyIcon(x,y) {
+  const ix=x+SIZE*0.44,iy=y-SIZE*0.44;
+  const p=1+0.12*Math.sin(performance.now()/300);
+  ctx.beginPath(); ctx.arc(ix,iy,7*p,0,Math.PI*2);
+  ctx.fillStyle='#22c55e'; ctx.fill();
+  ctx.strokeStyle='#a0ffc0'; ctx.lineWidth=1.5; ctx.stroke();
+  ctx.strokeStyle='#fff'; ctx.lineWidth=1.8; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(ix-2.5,iy+0.5); ctx.lineTo(ix-0.5,iy+2.5); ctx.lineTo(ix+2.8,iy-1.8); ctx.stroke();
+}
+function drawSleepIcon(x,y) {
+  const ix=x+SIZE*0.44,iy=y-SIZE*0.44;
+  ctx.beginPath(); ctx.arc(ix,iy,7.5,0,Math.PI*2);
+  ctx.fillStyle='#2a2a35'; ctx.fill();
+  ctx.strokeStyle='#7a7a8a'; ctx.lineWidth=1.5; ctx.stroke();
+  ctx.fillStyle='#c0c0d0'; ctx.font='bold 9px system-ui';
+  ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('Zz',ix,iy+0.5);
+}
+function drawHoldIcon(x,y) {
+  const ix=x+SIZE*0.44,iy=y-SIZE*0.44;
+  ctx.beginPath(); ctx.arc(ix,iy,7.5,0,Math.PI*2);
+  ctx.fillStyle='#1a4a3a'; ctx.fill();
+  ctx.strokeStyle='#2f9a6a'; ctx.lineWidth=1.5; ctx.stroke();
+  ctx.fillStyle='#7ae6a4'; ctx.font='bold 10px system-ui';
+  ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('◉',ix,iy+0.5);
+}
+function drawEvacIcon(x,y,n) {
+  const ix=x+SIZE*0.44,iy=y-SIZE*0.44;
+  ctx.beginPath(); ctx.arc(ix,iy,8,0,Math.PI*2);
+  ctx.fillStyle='#3a9a4a'; ctx.fill();
+  ctx.strokeStyle='#7ae6a4'; ctx.lineWidth=1.5; ctx.stroke();
+  ctx.fillStyle='#fff'; ctx.font='bold 10px system-ui';
+  ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(n,ix,iy+0.5);
+}
+function drawLevelBadge(x,y,level) {
+  if (!level||level<=1) return;
+  const bx=x-SIZE*0.44,by=y-SIZE*0.44;
+  ctx.beginPath(); ctx.arc(bx,by,7.5,0,Math.PI*2);
+  const g=ctx.createRadialGradient(bx-2,by-2,1,bx,by,8);
+  g.addColorStop(0,'#ffec8a'); g.addColorStop(1,'#7a5400');
+  ctx.fillStyle=g; ctx.fill();
+  ctx.strokeStyle='#ffe66a'; ctx.lineWidth=1.5; ctx.stroke();
+  ctx.fillStyle='#2a1a00'; ctx.font='bold 10px system-ui';
+  ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(String(level),bx,by+0.5);
+}
+function drawGenIcon(x,y,type,amount,dim) {
+  const cx=x,cy=y+SIZE*0.62;
+  const color=type==='mana'?'#4fa3ff':'#f0c040';
+  const dark=type==='mana'?'#12324f':'#4a3a10';
+  ctx.globalAlpha=dim?0.35:1;
+  ctx.beginPath(); ctx.arc(cx,cy,8,0,Math.PI*2);
+  ctx.fillStyle=dark; ctx.fill();
+  ctx.strokeStyle=color; ctx.lineWidth=1.5; ctx.stroke();
+  ctx.fillStyle=color; ctx.font='bold 9.5px system-ui';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('+'+amount,cx,cy+0.5);
+  ctx.globalAlpha=1;
+}
+function drawUnitIcon(type,pos,isEnemy) {
+  if (type==='warrior') {
+    ctx.strokeStyle=isEnemy?'#fff':'#2a1808'; ctx.lineWidth=3; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(pos.x,pos.y-SIZE*.3); ctx.lineTo(pos.x,pos.y+SIZE*.28);
+    ctx.moveTo(pos.x-SIZE*.18,pos.y+SIZE*.05); ctx.lineTo(pos.x+SIZE*.18,pos.y+SIZE*.05); ctx.stroke();
+  } else if (type==='archer') {
+    ctx.strokeStyle=isEnemy?'#fff':'#2a1a4c'; ctx.lineWidth=2; ctx.lineCap='round';
+    ctx.beginPath(); ctx.arc(pos.x,pos.y,SIZE*.28,-Math.PI*0.4,Math.PI*0.4); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pos.x+SIZE*.22,pos.y); ctx.lineTo(pos.x+SIZE*.4,pos.y); ctx.stroke();
+  } else if (type==='knight') {
+    ctx.strokeStyle=isEnemy?'#fff':'#0d2a18'; ctx.lineWidth=2.5; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(pos.x-SIZE*.22,pos.y+SIZE*.25); ctx.lineTo(pos.x-SIZE*.22,pos.y-SIZE*.05);
+    ctx.lineTo(pos.x+SIZE*.05,pos.y-SIZE*.28); ctx.lineTo(pos.x+SIZE*.22,pos.y-SIZE*.05); ctx.stroke();
+    ctx.beginPath(); ctx.arc(pos.x+SIZE*.18,pos.y-SIZE*.2,SIZE*.06,0,Math.PI*2);
+    ctx.fillStyle='#fff'; ctx.fill();
+  } else if (type==='brute') {
+    ctx.strokeStyle=isEnemy?'#fff':'#2a1808'; ctx.lineWidth=2.8; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(pos.x-SIZE*.12,pos.y+SIZE*.22); ctx.lineTo(pos.x+SIZE*.12,pos.y+SIZE*.22); ctx.stroke();
+    ctx.fillStyle=isEnemy?'#fff':'#2a1808';
+    ctx.fillRect(pos.x-SIZE*.28,pos.y-SIZE*.28,SIZE*.16,SIZE*.32);
+    ctx.fillRect(pos.x+SIZE*.12,pos.y-SIZE*.28,SIZE*.16,SIZE*.32);
+  } else if (type==='acolyte') {
+    ctx.beginPath(); ctx.arc(pos.x,pos.y,SIZE*.2,0,Math.PI*2);
+    ctx.fillStyle='#eaf5ff'; ctx.fill();
+  } else if (type==='grunt') {
+    ctx.strokeStyle='#fff'; ctx.lineWidth=2.2; ctx.lineCap='round';
+    const s=SIZE*.18;
+    ctx.beginPath(); ctx.moveTo(pos.x-s,pos.y-s); ctx.lineTo(pos.x+s,pos.y+s);
+    ctx.moveTo(pos.x+s,pos.y-s); ctx.lineTo(pos.x-s,pos.y+s); ctx.stroke();
+  } else if (type==='zombie') {
+    ctx.strokeStyle='#3a4a2a'; ctx.lineWidth=2.5; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(pos.x-SIZE*.2,pos.y-SIZE*.05); ctx.lineTo(pos.x+SIZE*.2,pos.y-SIZE*.05); ctx.stroke();
+    ctx.beginPath(); ctx.arc(pos.x-SIZE*.12,pos.y-SIZE*.22,SIZE*.05,0,Math.PI*2);
+    ctx.fillStyle='#ff4444'; ctx.fill();
+    ctx.beginPath(); ctx.arc(pos.x+SIZE*.12,pos.y-SIZE*.22,SIZE*.05,0,Math.PI*2);
+    ctx.fillStyle='#ff4444'; ctx.fill();
+  } else if (type==='hero') {
+    ctx.strokeStyle='#fff'; ctx.lineWidth=2.2; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(pos.x-SIZE*.16,pos.y+SIZE*.15); ctx.lineTo(pos.x-SIZE*.16,pos.y-SIZE*.15);
+    ctx.lineTo(pos.x,pos.y-SIZE*.3); ctx.lineTo(pos.x+SIZE*.16,pos.y-SIZE*.15);
+    ctx.lineTo(pos.x+SIZE*.16,pos.y+SIZE*.15); ctx.stroke();
+    ctx.beginPath(); ctx.arc(pos.x,pos.y-SIZE*.05,SIZE*.08,0,Math.PI*2);
+    ctx.fillStyle='#fff'; ctx.fill();
+  } else if (type==='boss') {
+    ctx.strokeStyle='#ffd700'; ctx.lineWidth=3; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(pos.x-SIZE*.2,pos.y+SIZE*.15); ctx.lineTo(pos.x-SIZE*.2,pos.y-SIZE*.2);
+    ctx.lineTo(pos.x,pos.y-SIZE*.35); ctx.lineTo(pos.x+SIZE*.2,pos.y-SIZE*.2);
+    ctx.lineTo(pos.x+SIZE*.2,pos.y+SIZE*.15); ctx.stroke();
+    ctx.beginPath(); ctx.arc(pos.x,pos.y,SIZE*.15,0,Math.PI*2);
+    ctx.fillStyle='#ff4444'; ctx.fill();
+  }
+}
+function drawAimLine(from,to) {
+  ctx.save(); ctx.setLineDash([5,4]); ctx.strokeStyle='rgba(255,80,80,0.55)'; ctx.lineWidth=1.6;
+  ctx.beginPath(); ctx.moveTo(from.x,from.y); ctx.lineTo(to.x,to.y); ctx.stroke(); ctx.restore();
+  const mx=(from.x+to.x)/2,my=(from.y+to.y)/2;
+  ctx.font='bold 14px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle='rgba(255,90,90,0.95)'; ctx.fillText('⚔',mx,my);
+}
+function drawPathLine(points) {
+  if (!points||points.length<1) return;
+  ctx.save(); ctx.setLineDash([4,5]); ctx.strokeStyle='rgba(255,215,0,.7)'; ctx.lineWidth=2;
+  ctx.beginPath();
+  for (let i=0;i<points.length;i++) {
+    const p=hexToPixel(points[i].q,points[i].r);
+    if (i===0) ctx.moveTo(p.x,p.y); else ctx.lineTo(p.x,p.y);
+  }
+  ctx.stroke(); ctx.restore();
+  const last=points[points.length-1];
+  const lp=hexToPixel(last.q,last.r);
+  ctx.font='bold 16px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle='rgba(255,215,0,.9)'; ctx.fillText('🚩',lp.x,lp.y);
+}
+function drawStatusText(text,color) {
+  ctx.save(); ctx.font='bold 18px system-ui'; ctx.textAlign='center'; ctx.textBaseline='top';
+  ctx.strokeStyle='rgba(0,0,0,0.85)'; ctx.lineWidth=4;
+  ctx.strokeText(text,W/2,12);
+  ctx.fillStyle=color||'rgba(255,220,120,0.95)';
+  ctx.fillText(text,W/2,12); ctx.restore();
+}
+function drawZones() {
+  for (const z of S.zones) {
+    const t=performance.now()/400;
+    for (const h of z.hexes) {
+      if (!isHexVisible(h.q,h.r)) continue;
+      const {x,y}=hexToPixel(h.q,h.r);
+      ctx.beginPath();
+      for (let i=0;i<6;i++) {
+        const a=Math.PI/180*(60*i-30);
+        const px=x+(SIZE-1)*Math.cos(a),py=y+(SIZE-1)*Math.sin(a);
+        i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
+      }
+      ctx.closePath();
+      ctx.fillStyle=z.color;
+      ctx.globalAlpha=0.25+0.15*Math.sin(t);
+      ctx.fill(); ctx.globalAlpha=1;
+      ctx.strokeStyle=z.color; ctx.lineWidth=1.5; ctx.stroke();
+    }
+  }
+}
+function drawShockZones() {
+  for (const z of S.shockZones) {
+    const t=performance.now()/200;
+    for (const h of z.hexes) {
+      if (!isHexVisible(h.q,h.r)) continue;
+      const {x,y}=hexToPixel(h.q,h.r);
+      ctx.beginPath();
+      for (let i=0;i<6;i++) {
+        const a=Math.PI/180*(60*i-30);
+        const px=x+(SIZE-1)*Math.cos(a),py=y+(SIZE-1)*Math.sin(a);
+        i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
+      }
+      ctx.closePath();
+      ctx.fillStyle=z.visual?'#ff4444':'#ffe066';
+      ctx.globalAlpha=0.15+0.1*Math.sin(t+h.q+h.r);
+      ctx.fill(); ctx.globalAlpha=0.6;
+      ctx.strokeStyle=z.visual?'#ff4444':'#ffe066'; ctx.lineWidth=1.5; ctx.stroke();
+      ctx.globalAlpha=1;
+    }
+  }
+}
+function drawBooks() {
+  for (const b of S.books) {
+    const caster=b.ownerId?S.units.find(u=>u.id===b.ownerId):S.hero;
+    const cq=caster?caster.q:S.hero.q;
+    const cr=caster?caster.r:S.hero.r;
+    const off=RINGS[b.radius][b.idx];
+    const aq=cq+off.q,ar=cr+off.r;
+    if (!isHexVisible(aq,ar)) continue;
+    const {x,y}=hexToPixel(aq,ar);
+    const pulse=1+0.15*Math.sin(performance.now()/300);
+    ctx.beginPath(); ctx.arc(x,y,SIZE*0.5*pulse,0,Math.PI*2);
+    ctx.fillStyle=b.evolved?'#ff44aa':'#ff8888';
+    ctx.globalAlpha=0.8; ctx.fill(); ctx.globalAlpha=1;
+    ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.font=`${Math.floor(SIZE*0.7)}px system-ui`;
+    ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('📖',x,y+1);
+  }
+}
+function drawProjectilesGameplay() {
+  for (const p of S.projectiles) {
+    if (!isHexVisible(p.q,p.r)) continue;
+    const {x,y}=hexToPixel(p.q,p.r);
+    ctx.beginPath(); ctx.arc(x,y,p.size,0,Math.PI*2);
+    ctx.fillStyle=p.color; ctx.fill();
+    ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.font=`${p.size}px system-ui`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    if (p.kind==='wand') ctx.fillText('✦',x,y+1);
+    else if (p.kind==='axe') ctx.fillText('🪓',x,y+1);
+    else if (p.kind==='cross') ctx.fillText('✝',x,y+1);
+  }
+}
+function drawSelectedOverlay(selUnit) {
+  if (!selUnit) return;
+  const x0=12,h=78,w=210,y0=H-h-12,r=8;
+  ctx.beginPath();
+  ctx.moveTo(x0+r,y0); ctx.lineTo(x0+w-r,y0); ctx.quadraticCurveTo(x0+w,y0,x0+w,y0+r);
+  ctx.lineTo(x0+w,y0+h-r); ctx.quadraticCurveTo(x0+w,y0+h,x0+w-r,y0+h);
+  ctx.lineTo(x0+r,y0+h); ctx.quadraticCurveTo(x0,y0+h,x0,y0+h-r);
+  ctx.lineTo(x0,y0+r); ctx.quadraticCurveTo(x0,y0,x0+r,y0);
+  ctx.closePath();
+  ctx.fillStyle='rgba(8,12,20,0.88)'; ctx.fill();
+  const ac=selUnit.isHero?HERO_TEMPLATE.color:(UNIT_TYPES[selUnit.type]||{}).color||'#888';
+  ctx.strokeStyle=ac; ctx.lineWidth=2; ctx.stroke();
+  const nm=selUnit.isHero?`Некромант · ур.${selUnit.level}`:(UNIT_TYPES[selUnit.type]||{}).name||'?';
+  ctx.fillStyle='#e8f0fb'; ctx.font='bold 12px system-ui'; ctx.textAlign='left'; ctx.textBaseline='top';
+  ctx.fillText(nm,x0+10,y0+8);
+  const pct=selUnit.hp/selUnit.maxHp;
+  ctx.fillStyle='#8fa3bd'; ctx.font='11px system-ui';
+  ctx.fillText(`HP ${selUnit.hp}/${selUnit.maxHp}`,x0+10,y0+26);
+  ctx.fillStyle='rgba(30,40,55,1)'; ctx.fillRect(x0+90,y0+29,108,5);
+  ctx.fillStyle=pct>.5?'#4ade80':pct>.25?'#facc15':'#ef4444';
+  ctx.fillRect(x0+90,y0+29,108*Math.max(0,pct),5);
+  ctx.fillStyle='#8fa3bd';
+  ctx.fillText(`ATK ${effectiveAtk(selUnit)} · DEF ${effectiveDef(selUnit)}`,x0+10,y0+42);
+  ctx.fillText(`Range ${unitRange(selUnit)} · Moves ${selUnit.movesLeft}/${selUnit.maxMoves}`,x0+10,y0+57);
+  if (isEvacuating(selUnit)) {ctx.fillStyle='#ff8888';ctx.font='bold 10px system-ui';ctx.fillText(`🚪 Эвакуация: ${selUnit.evacuating}...`,x0+10,y0+70);}
+  else if (selUnit.onHold) {ctx.fillStyle='#7ae6a4';ctx.font='bold 10px system-ui';ctx.fillText('◉ Держит',x0+10,y0+70);}
+  else if (selUnit.autoPath&&selUnit.autoPath.length) {ctx.fillStyle='#ffd700';ctx.font='bold 10px system-ui';ctx.fillText(`🚩 Маршрут: ${selUnit.autoPath.length}`,x0+10,y0+70);}
+  else if (selUnit.exhausted) {ctx.fillStyle='#f87171';ctx.font='bold 10px system-ui';ctx.fillText('Zz Только появился',x0+10,y0+70);}
+  else if (!selUnit.hasMoved) {ctx.fillStyle='#6ee7a0';ctx.font='bold 10px system-ui';ctx.fillText('✓ Готов',x0+10,y0+70);}
+  else {ctx.fillStyle='#f87171';ctx.font='bold 10px system-ui';ctx.fillText('Ход потрачен',x0+10,y0+70);}
+}
+
+function draw() {
+  if (!S||!S.hero) return;
+  ctx.clearRect(0,0,W,H);
+  const t=performance.now()/1000;
+  const selUnit=getSelectedUnit();
+  const summonHexes=new Set();
+  if (S.summonMode&&S.mana>=getSummonCost()&&!S.gameOver&&!isAnimating)
+    for (const h of MAP) if (canSummonAt(h.q,h.r)) summonHexes.add(key(h.q,h.r));
+  const moveHexes=new Set();
+  if (selUnit&&selUnit.movesLeft>0&&!S.gameOver&&!isAnimating&&!selUnit.exhausted&&!isStunned(selUnit)&&!isEvacuating(selUnit)) {
+    if (selUnit.type==='knight') {
+      for (const [dq,dr] of KNIGHT_DIRS) {const q=selUnit.q+dq,r=selUnit.r+dr;if(inMap(q,r)&&!entityAt(q,r))moveHexes.add(key(q,r));}
+    } else {
+      for (const [dq,dr] of DIRS) {const q=selUnit.q+dq,r=selUnit.r+dr;if(inMap(q,r)&&!entityAt(q,r))moveHexes.add(key(q,r));}
+    }
+  }
+  const inRangeEnemyIds=new Set();
+  if (selUnit&&!S.gameOver&&canAttack(selUnit)) for (const e of enemiesInRange(selUnit)) inRangeEnemyIds.add(e.id);
+
+  for (const h of MAP) {
+    if (!isHexVisible(h.q,h.r)) continue;
+    const {x,y}=hexToPixel(h.q,h.r);
+    const k=key(h.q,h.r);
+    const terr=terrainAt(h.q,h.r);
+    let fill='#141d2b',stroke='#222f44';
+    if (terr) {const ti=TERRAIN_INFO[terr];fill=ti.fill;stroke=ti.stroke;}
+    if (BLUE_ZONES.has(k)) {fill='#0e2438';stroke='#1e5a8a';}
+    if (GOLD_ZONES.has(k)) {fill='#2a2410';stroke='#7a6020';}
+    if (summonHexes.has(k)) {fill='#12304a';stroke='#3f8fc0';}
+    if (moveHexes.has(k)) {fill='#132a1c';stroke='#3f8a55';}
+    drawHex(x,y,SIZE-1,fill,stroke);
+    if (terr) {
+      const ti=TERRAIN_INFO[terr];
+      ctx.globalAlpha=0.7+0.25*Math.sin(t*2.5+(h.q+h.r)*0.5);
+      ctx.font='12px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillStyle=ti.color; ctx.fillText(ti.icon,x,y-SIZE*0.25);
+      ctx.globalAlpha=1;
+    }
+  }
+  drawZones(); drawShockZones();
+  for (const b of S.barracks) {
+    if (!isHexVisible(b.q,b.r)) continue;
+    const {x,y}=hexToPixel(b.q,b.r);
+    drawHex(x,y,SIZE-1,'#2a1e10','#8a6d1f',2);
+    ctx.font=`bold ${SIZE*0.85}px system-ui`; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillStyle='#e0b74a'; ctx.fillText('⚒',x,y+1);
+  }
+  for (const poi of S.pois) {
+    if (poi.looted||!isHexVisible(poi.q,poi.r)) continue;
+    const {x,y}=hexToPixel(poi.q,poi.r);
+    const info=POI_INFO[poi.kind];
+    const guardAlive=S.enemies.some(e=>e.guard&&e.q===poi.q&&e.r===poi.r);
+    ctx.beginPath(); ctx.arc(x,y,SIZE*0.78,0,Math.PI*2);
+    ctx.fillStyle=info.color;
+    ctx.globalAlpha=guardAlive?0.08:0.18+0.1*Math.sin(t*2.5+poi.q);
+    ctx.fill(); ctx.globalAlpha=1;
+    ctx.font=`bold ${guardAlive?12:20}px system-ui`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.globalAlpha=guardAlive?0.6:1;
+    ctx.fillText(info.icon,x,y+1); ctx.globalAlpha=1;
+  }
+  for (const e of S.enemies) {
+    if (!isHexVisible(e.q,e.r)) continue;
+    const et=ENEMY_TYPES[e.type]||ENEMY_TYPES.grunt;
+    const pos=getPos(e);
+    const isPref=selUnit&&selUnit.preferredTargetId===e.id;
+    ctx.beginPath(); ctx.arc(pos.x,pos.y,SIZE*.52,0,Math.PI*2);
+    ctx.fillStyle=e.stunned?'#805050':et.color; ctx.fill();
+    ctx.lineWidth=e.isBoss?3:1.5;
+    ctx.strokeStyle=e.isBoss?'#ffd700':et.dark; ctx.stroke();
+    if (e.guard&&!e.alerted) {
+      ctx.beginPath(); ctx.arc(pos.x,pos.y,SIZE*.7,0,Math.PI*2);
+      ctx.strokeStyle='#f0c040'; ctx.lineWidth=2; ctx.setLineDash([3,3]); ctx.stroke(); ctx.setLineDash([]);
+    } else if (e.guard&&e.alerted) {
+      ctx.beginPath(); ctx.arc(pos.x,pos.y,SIZE*.7,0,Math.PI*2);
+      ctx.strokeStyle='#ff4444'; ctx.lineWidth=2; ctx.stroke();
+    }
+    if (e.slowedUntil&&S.turn<=e.slowedUntil) {
+      ctx.beginPath(); ctx.arc(pos.x,pos.y,SIZE*.85,0,Math.PI*2);
+      ctx.strokeStyle='#8fd0ff'; ctx.lineWidth=1.5; ctx.setLineDash([2,4]); ctx.stroke(); ctx.setLineDash([]);
+    }
+    drawUnitIcon(e.type,pos,true);
+    drawHpBar(pos.x,pos.y-SIZE*.72,SIZE*.9,e.hp/e.maxHp);
+    if (e.stunned) {ctx.font='bold 14px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('💫',pos.x,pos.y-SIZE*0.95);}
+    if (e.isBoss) {ctx.font='bold 14px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#ffd700';ctx.fillText('★',pos.x-SIZE*0.7,pos.y-SIZE*0.7);}
+    if (inRangeEnemyIds.has(e.id)) {
+      ctx.save(); ctx.setLineDash(isPref?[]:[4,3]);
+      ctx.strokeStyle=isPref?'#ffaa00':'#ff6666';
+      ctx.lineWidth=isPref?3:1.8;
+      ctx.beginPath(); ctx.arc(pos.x,pos.y,SIZE*0.7,0,Math.PI*2); ctx.stroke(); ctx.restore();
+    }
+  }
+  drawBooks();
+  for (const u of S.units) {
+    if (!isHexVisible(u.q,u.r)) continue;
+    const pos=getPos(u);
+    const isSel=selUnit&&selUnit.id===u.id;
+    const inactive=isUnitInactive(u);
+    let color,dark;
+    if (u.isHero) {color=HERO_TEMPLATE.color;dark=HERO_TEMPLATE.dark;}
+    else {const tp=UNIT_TYPES[u.type];color=tp.color;dark=tp.dark;}
+    if (u.isHero) {
+      const ap=1+0.18*Math.sin(t*2.5);
+      ctx.beginPath(); ctx.arc(pos.x,pos.y,SIZE*0.92*ap,0,Math.PI*2);
+      const g=ctx.createRadialGradient(pos.x,pos.y,2,pos.x,pos.y,SIZE*0.92*ap);
+      g.addColorStop(0,'rgba(180,120,255,0.55)');
+      g.addColorStop(1,'rgba(120,60,200,0)');
+      ctx.fillStyle=g; ctx.fill();
+    }
+    if (isSel) {
+      ctx.beginPath(); ctx.arc(pos.x,pos.y,SIZE*0.68,0,Math.PI*2);
+      ctx.strokeStyle='rgba(255,255,255,.85)'; ctx.lineWidth=2.5; ctx.stroke();
+    }
+    ctx.beginPath(); ctx.arc(pos.x,pos.y,SIZE*.55,0,Math.PI*2);
+    ctx.fillStyle=inactive?'#4a4a4a':color; ctx.fill();
+    ctx.lineWidth=isSel?3:1.5;
+    ctx.strokeStyle=isSel?'#ffffff':(inactive?'#8a8a9a':dark);
+    ctx.stroke();
+    drawUnitIcon(u.type,pos,false);
+    const k=key(u.q,u.r);
+    if (u.type==='acolyte'&&(BLUE_ZONES.has(k)||GOLD_ZONES.has(k))&&!u.hasMoved&&!inactive) {
+      ctx.strokeStyle=BLUE_ZONES.has(k)?'#8fd0ff':'#f0c040'; ctx.lineWidth=2.2;
+      const pr=0.6+0.06*Math.sin(t*5);
+      ctx.beginPath(); ctx.arc(pos.x,pos.y,SIZE*pr,0,Math.PI*2); ctx.stroke();
+    }
+    if (unitOnBarracks(u)) {
+      ctx.strokeStyle='#ffd700'; ctx.lineWidth=1.5; ctx.setLineDash([3,3]);
+      ctx.beginPath(); ctx.arc(pos.x,pos.y,SIZE*0.62,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
+    }
+    if (isEvacuating(u)) drawEvacIcon(pos.x,pos.y,u.evacuating);
+    else if (inactive) drawSleepIcon(pos.x,pos.y);
+    else if (u.onHold) drawHoldIcon(pos.x,pos.y);
+    else if (!u.hasMoved) drawReadyIcon(pos.x,pos.y);
+    if (u.isHero) drawLevelBadge(pos.x,pos.y,u.level);
+    drawHpBar(pos.x,pos.y-SIZE*.78,SIZE*.9,u.hp/u.maxHp);
+    if (u.type==='acolyte') {
+      const gen=acolyteGen(u);
+      drawGenIcon(pos.x,pos.y,gen.type,gen.amount,!gen.active);
+    }
+    if (u.isHero) {
+      const total=HERO_TEMPLATE.manaPerTurn+u.manaBonus+(u.equipManaBonus||0);
+      ctx.fillStyle='#cfe0f5'; ctx.font='bold 9px system-ui';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('+'+total,pos.x,pos.y+SIZE*0.72);
+    }
+    if (isSel) {
+      const ay=pos.y-SIZE*1.15+Math.sin(t*4)*3;
+      ctx.beginPath();
+      ctx.moveTo(pos.x-9,ay-8); ctx.lineTo(pos.x+9,ay-8); ctx.lineTo(pos.x,ay+5);
+      ctx.closePath(); ctx.fillStyle='#ffd700'; ctx.fill();
+      ctx.strokeStyle='rgba(0,0,0,0.85)'; ctx.lineWidth=1.8; ctx.stroke();
+    }
+  }
+  for (const u of S.units) if (u.autoPath&&u.autoPath.length>0) drawPathLine([{q:u.q,r:u.r},...u.autoPath]);
+  for (const u of S.units) {
+    if (!canAttack(u)) continue;
+    const targets=enemiesInRange(u);
+    if (!targets.length) continue;
+    if (u.type==='knight'||u.type==='brute') for (const e of targets) drawAimLine(getPos(u),getPos(e));
+    else {
+      let target=u.preferredTargetId?targets.find(t=>t.id===u.preferredTargetId):null;
+      if (!target) target=targets[0];
+      drawAimLine(getPos(u),getPos(target));
+    }
+  }
+  drawProjectilesGameplay();
+  for (const p of visualProj) {
+    const t2=Math.min(1,(performance.now()-p.startTime)/p.duration);
+    const x=p.x1+(p.x2-p.x1)*t2,y=p.y1+(p.y2-p.y1)*t2;
+    const ang=Math.atan2(p.y2-p.y1,p.x2-p.x1);
+    ctx.save(); ctx.translate(x,y); ctx.rotate(ang);
+    ctx.strokeStyle='#ffd24a'; ctx.lineWidth=2; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(-9,0); ctx.lineTo(7,0);
+    ctx.moveTo(7,0); ctx.lineTo(2,-4); ctx.moveTo(7,0); ctx.lineTo(2,4); ctx.stroke();
+    ctx.restore();
+  }
+  for (const sl of slashes) {
+    const t2=Math.min(1,(performance.now()-sl.startTime)/sl.duration);
+    const a=1-t2;
+    ctx.strokeStyle=`rgba(255,120,120,${a})`; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.arc(sl.x,sl.y,SIZE*(0.3+0.7*t2),0,Math.PI*2); ctx.stroke();
+  }
+  for (const f of floaters) {
+    const a=Math.min(1,f.life/0.4);
+    ctx.globalAlpha=a; ctx.font='bold 15px system-ui';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.strokeStyle='rgba(0,0,0,0.85)'; ctx.lineWidth=3;
+    ctx.strokeText(f.text,f.x,f.y);
+    ctx.fillStyle=f.color; ctx.fillText(f.text,f.x,f.y);
+    ctx.globalAlpha=1;
+  }
+  drawSelectedOverlay(selUnit);
+  if (phase==='move') drawStatusText('🚶 Юниты идут...');
+  else if (phase==='friendly') drawStatusText('⚔ Атака...');
+  else if (phase==='skills') drawStatusText('✨ Навыки...');
+  else if (phase==='enemy') drawStatusText('🌑 Ход врага...');
+  else if (phase==='cleanup') drawStatusText('✨ Регенерация...');
+  else if (S.summonMode) drawStatusText('✨ Призыв · Esc = отмена','rgba(140,200,255,0.95)');
+  const grad=ctx.createRadialGradient(W/2,H/2,H*0.4,W/2,H/2,H*1.05);
+  grad.addColorStop(0,'rgba(0,0,0,0)'); grad.addColorStop(1,'rgba(0,0,0,0.35)');
+  ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
+}
+
+// ========== UI ==========
+function pendingUnitsList() {
+  return S.units.filter(u=>u&&!u.onHold&&!u.exhausted&&!isStunned(u)&&!isEvacuating(u)&&!u.hasMoved&&!(u.autoPath&&u.autoPath.length>0));
+}
+function combatUnitsSet() {
+  const ids=new Set();
+  for (const u of S.units) if (canAttack(u)&&enemiesInRange(u).length>0) ids.add(u.id);
+  for (const e of S.enemies) {
+    if (e.stationary&&!e.alerted) continue;
+    const range=e.range||1;
+    for (const u of S.units) if (hexDist(u.q,u.r,e.q,e.r)<=range) ids.add(u.id);
+  }
+  return ids;
+}
+function nextPendingUnit() {
+  const list=pendingUnitsList();
+  if (!list.length) return;
+  const idx=S.notifyIdx%list.length;
+  const u=list[idx];
+  S.notifyIdx=(S.notifyIdx+1)%Math.max(1,list.length);
+  S.selection={type:'unit',id:u.id};
+  const p=hexToPixel(u.q,u.r);
+  camX=CX-p.x+camX; camY=CY-p.y+camY; clampCamera();
+  updateUI(); draw();
+}
+function nextCombatUnit() {
+  const ids=combatUnitsSet();
+  const list=S.units.filter(u=>ids.has(u.id));
+  if (!list.length) return;
+  const idx=S.combatIdx%list.length;
+  const u=list[idx];
+  S.combatIdx=(S.combatIdx+1)%Math.max(1,list.length);
+  S.selection={type:'unit',id:u.id};
+  const p=hexToPixel(u.q,u.r);
+  camX=CX-p.x+camX; camY=CY-p.y+camY; clampCamera();
+  updateUI(); draw();
+}
+
+function updateUI() {
+  if (!S||!S.hero) return;
+  const inc=computeIncome();
+  const up=computeUpkeep();
+  const net=inc.mana-up;
+  document.getElementById('resMana').innerHTML=`<span>💧 Мана</span><b>${S.mana} <span class="delta ${net>0?'pos':net<0?'neg':''}">(${net>=0?'+':''}${net})</span></b>`;
+  document.getElementById('resGold').innerHTML=`<span>🪙 Золото</span><b>${S.gold} <span class="delta pos">(+${inc.gold})</span></b>`;
+  document.getElementById('rTurn').textContent=`Р${S.round} · ${S.turn}`;
+  document.getElementById('rHero').textContent=`${Math.max(0,S.hero.hp)} / ${S.hero.maxHp}`;
+  const selUnit=getSelectedUnit();
+  const selBox=document.getElementById('selection');
+  if (selUnit) {
+    const isHero=selUnit.isHero;
+    const tp=isHero?HERO_TEMPLATE:UNIT_TYPES[selUnit.type];
+    const range=unitRange(selUnit);
+    const name=isHero?HERO_TEMPLATE.name:tp.name;
+    const color=isHero?HERO_TEMPLATE.color:tp.color;
+    const tb=terrainBonus(selUnit.q,selUnit.r);
+    const onB=!!unitOnBarracks(selUnit);
+    const atkBonus=tb.atk+(!isHero?(S.armyAtkBonus||0):0);
+    const defBonus=tb.def+(!isHero?(S.armyDefBonus||0):0);
+    const inRange=enemiesInRange(selUnit);
+    const atkOk=canAttack(selUnit);
+    let statusInfo='';
+    if (isEvacuating(selUnit)) statusInfo=`<div class="stat-row"><span>Статус</span><b style="color:#ff8888">🚪 Эвакуация (${selUnit.evacuating})</b></div>`;
+    else if (isStunned(selUnit)) statusInfo=`<div class="stat-row"><span>Статус</span><b style="color:#f0c040">💤</b></div>`;
+    else if (selUnit.exhausted) statusInfo=`<div class="stat-row"><span>Статус</span><b style="color:#f87171">Zz</b></div>`;
+    else if (selUnit.onHold) statusInfo=`<div class="stat-row"><span>Статус</span><b style="color:#7ae6a4">◉ держит</b></div>`;
+    else if (selUnit.autoPath&&selUnit.autoPath.length) statusInfo=`<div class="stat-row"><span>Маршрут</span><b style="color:#ffd700">🚩 ${selUnit.autoPath.length}</b></div>`;
+    else if (!atkOk) statusInfo=`<div class="stat-row"><span>Атака</span><b style="color:#f87171">заблокирована</b></div>`;
+    else if (inRange.length===0) statusInfo=`<div class="stat-row"><span>Цель</span><b style="color:#8fa3bd">нет</b></div>`;
+    else statusInfo=`<div class="stat-row"><span>Цель</span><b>${inRange.length}</b></div>`;
+    const threshold=selUnit.level*10;
+    const xpPct=Math.min(100,(selUnit.xp/threshold)*100);
+    let skillsHtml='';
+    if (isHero&&(Object.keys(selUnit.skills).some(k=>selUnit.skills[k]>0)||selUnit.evolutions.length)) {
+      skillsHtml='<div style="margin-top:6px;padding-top:6px;border-top:1px solid #1e2a3a">';
+      skillsHtml+=`<div style="font-size:10px;color:#6f8199;letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">Навыки</div>`;
+      for (const [k,v] of Object.entries(selUnit.skills)) {
+        if (!v) continue;
+        const def=SKILL_REGISTRY[k]; if (!def) continue;
+        const maxed=v>=def.maxLevel;
+        skillsHtml+=`<span class="skill-pill ${maxed?'maxed':''}">${def.icon} ${v}/${def.maxLevel}</span>`;
+      }
+      for (const [k,v] of Object.entries(selUnit.passives)) {
+        if (!v) continue;
+        const def=PASSIVE_DEFS[k]; if (!def) continue;
+        skillsHtml+=`<span class="skill-pill">${def.icon} ${v}</span>`;
+      }
+      for (const e of selUnit.evolutions) {
+        const def=EVOLUTIONS[e]; if (!def) continue;
+        skillsHtml+=`<span class="skill-pill evo">${def.icon}</span>`;
+      }
+      skillsHtml+='</div>';
+    }
+    selBox.innerHTML=`
+      <div class="card-title"><span class="dot" style="background:${color}"></span>${name} · ур.${selUnit.level}</div>
+      <div class="stat-row"><span>HP</span><b>${selUnit.hp}/${selUnit.maxHp}</b></div>
+      <div class="stat-row"><span>Атака</span><b>${selUnit.atk}${atkBonus>0?` <span style="color:#f59e0b">(+${atkBonus})</span>`:''}</b></div>
+      <div class="stat-row"><span>Защита</span><b>${selUnit.def}${defBonus>0?` <span style="color:#3b82f6">(+${defBonus})</span>`:''}</b></div>
+      <div class="stat-row"><span>Дальность</span><b>${range}</b></div>
+      <div class="stat-row"><span>XP</span><b>${selUnit.level>=1?selUnit.xp+'/'+threshold:'-'}</b></div>
+      <div class="xp-track"><div class="xp-fill" style="width:${xpPct}%"></div></div>
+      ${statusInfo}${skillsHtml}`;
+  } else {
+    selBox.innerHTML=`<div class="hint">
+      ЛКМ-драг = камера. Клик по дальнему = маршрут.<br>
+      <b>XP только за убийства.</b><br>
+      <b>ОРДА</b>: гоблины 2 хода, не бьют после движения.<br>
+      <b>Эвакуация</b> 🚪 (7,-5): 3 хода уязвимости → сохранить золото+вещи.<br>
+      <b>Смерть</b>: только 25% золота, вещи потеряны.
+    </div>`;
+  }
+  const act=document.getElementById('actions');
+  let html='';
+  if (!S.gameOver&&!isAnimating) {
+    const cost=getSummonCost();
+    if (S.summonMode) html+=`<button class="summon-cancel" data-summon-mode="1">✖ Отменить</button>`;
+    else if (S.mana>=cost) html+=`<button class="summon" data-summon-mode="1">✨ Адепт (${cost}💧)</button>`;
+    else html+=`<button class="summon" disabled>✨ (${cost}💧 нужно)</button>`;
+    // Эвакуация
+    if (S.hero&&!S.hero.evacuating) {
+      const heroPoi=poiAt(S.hero.q,S.hero.r);
+      if (heroPoi&&heroPoi.kind==='evacuation') {
+        html+=`<button class="evac" data-start-evac="1">🚪 Начать эвакуацию</button>`;
+      }
+    } else if (S.hero&&S.hero.evacuating>0) {
+      html+=`<button disabled>🚪 Эвакуация: ${S.hero.evacuating}...</button>`;
+    }
+  }
+  if (selUnit&&!selUnit.isHero&&selUnit.type==='acolyte'&&!isAnimating&&canTrainAtBarracks(selUnit)) {
+    if (S.gold>=COST_UPGRADE) {
+      html+=`<button class="train" data-train-in="warrior">⚔ Воин</button>`;
+      html+=`<button class="train" data-train-in="archer">🏹 Лучник</button>`;
+      html+=`<button class="train" data-train-in="knight">🐎 Конь</button>`;
+      html+=`<button class="train" data-train-in="brute">💪 Громила</button>`;
+    }
+  }
+  if (selUnit&&!S.gameOver&&!isAnimating&&!isEvacuating(selUnit)) {
+    if (selUnit.autoPath&&selUnit.autoPath.length) html+=`<button class="cancel-auto" data-cancel-auto="1">✖ Отменить маршрут</button>`;
+    html+=`<button class="hold ${selUnit.onHold?'active':''}" data-hold="1">${selUnit.onHold?'◉ Держит':'◉ Держать'}</button>`;
+  }
+  act.innerHTML=html;
+  const notify=document.getElementById('notifyBtn');
+  const pending=pendingUnitsList();
+  if (pending.length>0&&!isAnimating&&!S.gameOver) {notify.style.display='block';notify.textContent=`🔔 ${pending.length} ждут`;}
+  else notify.style.display='none';
+  const combat=document.getElementById('combatBtn');
+  const cc=combatUnitsSet().size;
+  if (cc>0&&!isAnimating&&!S.gameOver) {combat.style.display='block';combat.textContent=`⚔ ${cc} в бою`;}
+  else combat.style.display='none';
+  const logEl=document.getElementById('log');
+  logEl.innerHTML=S.log.map(l=>`<div class="${l.hl?'hl':''} ${l.cls||''}">${l.text}</div>`).join('');
+  logEl.scrollTop=logEl.scrollHeight;
+  document.getElementById('endTurn').disabled=S.gameOver||isAnimating;
+}
+
+// ========== INVENTORY ==========
+function getSlotByPath(p) {
+  if (p.startsWith('equip:')) return {obj:S.inventory.equipment,key:p.slice(6)};
+  if (p.startsWith('back:')) return {obj:S.inventory.backpack,key:parseInt(p.slice(5))};
+  if (p.startsWith('stash:')) return {obj:S.inventory.stash,key:parseInt(p.slice(6))};
+  return null;
+}
+function renderInventory() {
+  const eq=S.inventory.equipment;
+  const order=['helmet','amulet','chest','weaponL','weaponR','ring','boots'];
+  const labels={helmet:'Шлем',amulet:'Амул',chest:'Броня',weaponL:'Ор.Л',weaponR:'Ор.П',ring:'Кольцо',boots:'Сапоги'};
+  document.getElementById('invEquip').innerHTML=order.map(k=>{
+    const it=eq[k];
+    const c=it?`<span>${(ITEM_DEFS[it.kind]||{}).icon||'?'}</span>`:`<span class="empty-hint">${labels[k].slice(0,4)}</span><span class="slot-label">${labels[k]}</span>`;
+    return `<div class="inv-slot equip" draggable="true" data-path="equip:${k}" data-item-kind="${it?it.kind:''}">${c}</div>`;
+  }).join('');
+  document.getElementById('invBackpack').innerHTML=S.inventory.backpack.map((it,i)=>{
+    const c=it?`<span>${(ITEM_DEFS[it.kind]||{}).icon||'?'}</span>`:'';
+    return `<div class="inv-slot" draggable="true" data-path="back:${i}" data-item-kind="${it?it.kind:''}">${c}</div>`;
+  }).join('');
+  document.getElementById('invStash').innerHTML=S.inventory.stash.map((it,i)=>{
+    const c=it?`<span>${(ITEM_DEFS[it.kind]||{}).icon||'?'}</span>`:'';
+    return `<div class="inv-slot" draggable="true" data-path="stash:${i}" data-item-kind="${it?it.kind:''}">${c}</div>`;
+  }).join('');
+  document.querySelectorAll('#invPanel .inv-slot').forEach(s=>{
+    s.addEventListener('dragstart',onInvDragStart);
+    s.addEventListener('dragover',onInvDragOver);
+    s.addEventListener('dragleave',onInvDragLeave);
+    s.addEventListener('drop',onInvDrop);
+    s.addEventListener('dragend',onInvDragEnd);
+    s.addEventListener('mouseenter',onInvHover);
+    s.addEventListener('mousemove',onInvMove);
+    s.addEventListener('mouseleave',onInvLeave);
+  });
+}
+function onInvDragStart(ev){dragSrcSlot=ev.currentTarget.dataset.path;ev.currentTarget.classList.add('dragging');ev.dataTransfer.effectAllowed='move';ev.dataTransfer.setData('text/plain',dragSrcSlot);}
+function onInvDragOver(ev){ev.preventDefault();ev.dataTransfer.dropEffect='move';ev.currentTarget.classList.add('dragover');}
+function onInvDragLeave(ev){ev.currentTarget.classList.remove('dragover');}
+function onInvDrop(ev) {
+  ev.preventDefault(); ev.currentTarget.classList.remove('dragover');
+  const dstPath=ev.currentTarget.dataset.path;
+  if (!dragSrcSlot||dragSrcSlot===dstPath) return;
+  const src=getSlotByPath(dragSrcSlot),dst=getSlotByPath(dstPath);
+  if (!src||!dst) return;
+  const srcItem=src.obj[src.key],dstItem=dst.obj[dst.key];
+  if (srcItem&&dstPath.startsWith('equip:')) {
+    const d=ITEM_DEFS[srcItem.kind]; const sn=dstPath.slice(6);
+    if (d&&d.slot&&d.slot!==sn&&!(sn==='weaponR'&&d.slot==='weaponL')) {dragSrcSlot=null;return;}
+  }
+  if (dstItem&&dragSrcSlot.startsWith('equip:')) {
+    const d=ITEM_DEFS[dstItem.kind]; const sn=dragSrcSlot.slice(6);
+    if (d&&d.slot&&d.slot!==sn&&!(sn==='weaponR'&&d.slot==='weaponL')) {dragSrcSlot=null;return;}
+  }
+  src.obj[src.key]=dstItem; dst.obj[dst.key]=srcItem;
+  recalcHeroStats(); renderInventory(); updateUI(); draw();
+  dragSrcSlot=null;
+}
+function onInvDragEnd(ev){ev.currentTarget.classList.remove('dragging');dragSrcSlot=null;}
+function onInvHover(ev) {
+  const k=ev.currentTarget.dataset.itemKind; if (!k) return;
+  const d=ITEM_DEFS[k]; if (!d) return;
+  invTooltip.innerHTML=`<b>${d.icon} ${d.name}</b><br>${d.desc}${d.rare?'<br><span style="color:#f0c040">✦ Редкий</span>':''}`;
+  invTooltip.style.display='block';
+}
+function onInvMove(ev){invTooltip.style.left=(ev.clientX+14)+'px';invTooltip.style.top=(ev.clientY+14)+'px';}
+function onInvLeave(){invTooltip.style.display='none';}
+
+// ========== TOOLTIPS ==========
+function showResourceTooltip(el,ev) {
+  const isMana=el.id==='resMana';
+  const items=incomeBreakdown().filter(it=>it.kind===(isMana?'mana':'gold'));
+  const total=items.reduce((s,it)=>s+it.value,0);
+  let html=`<b>${isMana?'💧 Мана':'🪙 Золото'} /ход</b><div style="height:1px;background:rgba(255,255,255,.07);margin:6px 0"></div>`;
+  for (const it of items) {
+    const cls=it.value>0?'tt-pos':'tt-neg';
+    html+=`<div class="tt-row"><span>${it.label}</span><span class="${cls}">${it.value>0?'+':''}${it.value}</span></div>`;
+  }
+  html+=`<div style="height:1px;background:rgba(255,255,255,.07);margin:6px 0"></div><div class="tt-row"><b>Итого</b><b class="${total>=0?'tt-pos':'tt-neg'}">${total>0?'+':''}${total}</b></div>`;
+  tooltip.innerHTML=html; tooltip.style.display='block';
+  tooltip.style.left=(ev.clientX+14)+'px'; tooltip.style.top=(ev.clientY+14)+'px';
+}
+function showPendingTooltip(ev) {
+  const list=pendingUnitsList();
+  if (!list.length) {tooltip.style.display='none';return;}
+  let html='<b>Ожидают:</b><div style="height:1px;background:rgba(255,255,255,.07);margin:6px 0"></div>';
+  for (const u of list) html+=`<div class="tt-row"><span>${u.isHero?'Некромант':UNIT_TYPES[u.type].name}</span><span>(${u.q},${u.r})</span></div>`;
+  tooltip.innerHTML=html; tooltip.style.display='block';
+  tooltip.style.left=(ev.clientX+14)+'px'; tooltip.style.top=(ev.clientY+14)+'px';
+}
+function showCombatTooltip(ev) {
+  const ids=combatUnitsSet();
+  const list=S.units.filter(u=>ids.has(u.id));
+  if (!list.length) {tooltip.style.display='none';return;}
+  let html='<b>В бою:</b><div style="height:1px;background:rgba(255,255,255,.07);margin:6px 0"></div>';
+  for (const u of list) html+=`<div class="tt-row"><span>${u.isHero?'Некромант':UNIT_TYPES[u.type].name}</span><span>(${u.q},${u.r})</span></div>`;
+  tooltip.innerHTML=html; tooltip.style.display='block';
+  tooltip.style.left=(ev.clientX+14)+'px'; tooltip.style.top=(ev.clientY+14)+'px';
+}
+
+// ========== INPUT ==========
+function handleCanvasClick(ev) {
+  if (!S||S.gameOver||isAnimating) return;
+  const rect=cv.getBoundingClientRect();
+  const {q,r}=pixelToHex(ev.clientX-rect.left,ev.clientY-rect.top);
+  if (!inMap(q,r)){S.selection=null;updateUI();draw();return;}
+  const ent=entityAt(q,r);
+  const selUnit=getSelectedUnit();
+  if (S.summonMode) {
+    if (!ent&&S.mana>=getSummonCost()&&canSummonAt(q,r)){summon(q,r);return;}
+    S.summonMode=false; updateUI(); draw(); return;
+  }
+  if (ent) {
+    if (ent.kind==='unit') {
+      S.selection=selUnit&&selUnit.id===ent.ref.id?null:{type:'unit',id:ent.ref.id};
+      updateUI(); draw(); return;
+    }
+    if (ent.kind==='enemy') {
+      if (selUnit&&canAttack(selUnit)&&hexDist(selUnit.q,selUnit.r,q,r)<=unitRange(selUnit)) {
+        const targets=enemiesInRange(selUnit);
+        if (targets.length>=2) selUnit.preferredTargetId=ent.ref.id;
+      }
+      updateUI(); draw(); return;
+    }
+  }
+  if (selUnit&&!ent) {
+    if (selUnit.movesLeft>0&&!selUnit.exhausted&&!isStunned(selUnit)&&!isEvacuating(selUnit)) {
+      const cs=selUnit.type==='knight'?isKnightMove(selUnit.q,selUnit.r,q,r):adjacent(selUnit.q,selUnit.r,q,r);
+      if (cs) {moveUnit(selUnit,q,r);return;}
+    }
+    if (setAutoPath(selUnit,{q,r})) return;
+    addLog(`⚠ Маршрут (${q},${r}) недоступен.`);
+    return;
+  }
+  S.selection=null; updateUI(); draw();
+}
+cv.addEventListener('mousedown',ev=>{
+  if (ev.button!==0) return;
+  const rect=cv.getBoundingClientRect();
+  mouseDownInfo={startX:ev.clientX-rect.left,startY:ev.clientY-rect.top,camX,camY,moved:false};
+  isDragging=false;
+});
+cv.addEventListener('mousemove',ev=>{
+  if (!S) return;
+  const rect=cv.getBoundingClientRect();
+  const mx=ev.clientX-rect.left,my=ev.clientY-rect.top;
+  if (mouseDownInfo) {
+    const dx=mx-mouseDownInfo.startX,dy=my-mouseDownInfo.startY;
+    if (!mouseDownInfo.moved&&(Math.abs(dx)>5||Math.abs(dy)>5)) {mouseDownInfo.moved=true;isDragging=true;cv.classList.add('grabbing');}
+    if (mouseDownInfo.moved) {
+      camX=mouseDownInfo.camX+dx; camY=mouseDownInfo.camY+dy;
+      clampCamera(); tooltip.style.display='none'; return;
+    }
+  }
+  const {q,r}=pixelToHex(mx,my);
+  if (!inMap(q,r)) {tooltip.style.display='none';cv.classList.remove('pointer');return;}
+  const ent=entityAt(q,r);
+  const poi=poiAt(q,r);
+  const b=barracksAt(q,r);
+  const terr=terrainAt(q,r);
+  const k=key(q,r);
+  const isZone=BLUE_ZONES.has(k)||GOLD_ZONES.has(k);
+  if (ent||poi||b) cv.classList.add('pointer'); else cv.classList.remove('pointer');
+  let html='';
+  if (ent&&ent.kind==='unit') {
+    const u=ent.ref,isHero=u.isHero;
+    const tp=isHero?HERO_TEMPLATE:UNIT_TYPES[u.type];
+    const nm=isHero?HERO_TEMPLATE.name:tp.name;
+    const range=unitRange(u);
+    const state=isEvacuating(u)?`🚪 ${u.evacuating}`:isStunned(u)?'💤':u.exhausted?'Zz':u.onHold?'◉':u.hasMoved?'Ход':'✓';
+    html=`<b>${nm}</b>${isHero?' · ур.'+u.level:''}<br>HP ${u.hp}/${u.maxHp}<br>ATK ${u.atk} · DEF ${u.def}<br>Range ${range} · ${state}`;
+  } else if (ent&&ent.kind==='enemy') {
+    const et=ENEMY_TYPES[ent.ref.type]||ENEMY_TYPES.grunt;
+    let note='';
+    if (ent.ref.isBoss) note='<br><span style="color:#ffd700">★ БОСС · Тёмная Нова</span>';
+    else if (ent.ref.guard) note=ent.ref.alerted?'<br><span style="color:#ff6666">⚠ Ярость</span>':'<br><span style="color:#f0c040">🛡 Пассивен</span>';
+    else if (et.canAttackAfterMove===false) note='<br><span style="color:#a0c0e0">Не бьёт после хода</span>';
+    const slowNote=(ent.ref.slowedUntil&&S.turn<=ent.ref.slowedUntil)?'<br><span style="color:#8fd0ff">🐌 Замедлен</span>':'';
+    html=`<b>${et.name}</b>${ent.ref.stunned?' 💫':''}<br>HP ${ent.ref.hp}/${ent.ref.maxHp}<br>ATK ${ent.ref.atk} · DEF ${ent.ref.def}<br>Speed ${getEnemySpeed(ent.ref)}${note}${slowNote}`;
+  } else if (b) {
+    html=`<b>⚒ Барак</b><br>Приведи адепта → ${COST_UPGRADE}🪙.`;
+  } else if (poi) {
+    const info=POI_INFO[poi.kind];
+    if (poi.kind==='evacuation') {
+      html=`<b>🚪 Точка эвакуации</b><br>Встань героем и нажми «Эвакуация».<br><span style="color:#8fa3bd;font-size:11px">3 хода уязвимости → сохранить всё.</span>`;
+    } else {
+      const g=S.enemies.find(e=>e.guard&&e.q===poi.q&&e.r===poi.r);
+      const gs=g?(g.isBoss?'<span style="color:#ffd700">★ БОСС</span>':'<span style="color:#f87171">Охраняется</span>'):'<span style="color:#6ee7a0">Свободно</span>';
+      html=`<b>${info.icon} ${info.name}</b><br>${gs}`;
+    }
+  } else if (isZone) {
+    if (BLUE_ZONES.has(k)) html=`<b>💧 Синяя зона</b><br>Адепт: <b>+${MANA_ACOLYTE_BLUE}💧</b>`;
+    else html=`<b>🪙 Золотая зона</b><br>Адепт: <b>+${GOLD_ACOLYTE_ZONE}🪙</b>`;
+  } else if (terr) {
+    const ti=TERRAIN_INFO[terr];
+    html=`<b>${ti.icon} Террейн</b><br>${ti.label}`;
+  }
+  if (html) {tooltip.innerHTML=html;tooltip.style.display='block';tooltip.style.left=(ev.clientX+14)+'px';tooltip.style.top=(ev.clientY+14)+'px';}
+  else tooltip.style.display='none';
+});
+cv.addEventListener('mouseup',ev=>{
+  if (!mouseDownInfo) return;
+  const wasDrag=mouseDownInfo.moved;
+  mouseDownInfo=null; isDragging=false;
+  cv.classList.remove('grabbing');
+  if (!wasDrag) handleCanvasClick(ev);
+});
+cv.addEventListener('mouseleave',()=>{
+  tooltip.style.display='none';
+  if (mouseDownInfo) {mouseDownInfo=null;isDragging=false;cv.classList.remove('grabbing');}
+});
+const resManaEl=document.getElementById('resMana');
+const resGoldEl=document.getElementById('resGold');
+for (const el of [resManaEl,resGoldEl]) {
+  el.addEventListener('mouseenter',e=>showResourceTooltip(el,e));
+  el.addEventListener('mousemove',e=>{tooltip.style.left=(e.clientX+14)+'px';tooltip.style.top=(e.clientY+14)+'px';});
+  el.addEventListener('mouseleave',()=>{tooltip.style.display='none';});
+}
+const notifyEl=document.getElementById('notifyBtn');
+notifyEl.addEventListener('mouseenter',showPendingTooltip);
+notifyEl.addEventListener('mousemove',e=>{tooltip.style.left=(e.clientX+14)+'px';tooltip.style.top=(e.clientY+14)+'px';});
+notifyEl.addEventListener('mouseleave',()=>{tooltip.style.display='none';});
+const combatEl=document.getElementById('combatBtn');
+combatEl.addEventListener('mouseenter',showCombatTooltip);
+combatEl.addEventListener('mousemove',e=>{tooltip.style.left=(e.clientX+14)+'px';tooltip.style.top=(e.clientY+14)+'px';});
+combatEl.addEventListener('mouseleave',()=>{tooltip.style.display='none';});
+document.getElementById('actions').addEventListener('click',ev=>{
+  const btn=ev.target.closest('button');
+  if (!btn||isAnimating) return;
+  if (btn.dataset.summonMode) {
+    if (S.summonMode) S.summonMode=false;
+    else if (S.mana>=getSummonCost()) {S.summonMode=true;S.selection=null;}
+    updateUI(); draw();
+  } else if (btn.dataset.trainIn) {
+    const u=getSelectedUnit(); if (u) trainUnit(u,btn.dataset.trainIn);
+  } else if (btn.dataset.cancelAuto) {
+    const u=getSelectedUnit(); if (u) {u.autoPath=[];addLog('Маршрут отменён.');updateUI();draw();}
+  } else if (btn.dataset.hold) {
+    const u=getSelectedUnit();
+    if (u) {
+      u.onHold=!u.onHold;
+      if (u.onHold) u.autoPath=[];
+      addLog(u.onHold?`${u.isHero?'Герой':UNIT_TYPES[u.type].name} держит.`:'Снято.');
+      updateUI(); draw();
+    }
+  } else if (btn.dataset.startEvac) {
+    startEvacuation();
+  }
+});
+document.getElementById('endTurn').addEventListener('click',doEndTurn);
+document.getElementById('restart').addEventListener('click',()=>{
+  document.getElementById('over').classList.remove('show');
+  document.getElementById('app').classList.remove('open');
+  document.getElementById('startScreen').classList.remove('hide');
+  renderSlots(); S=null;
+});
+document.getElementById('openInventory').addEventListener('click',()=>{renderInventory();document.getElementById('invPanel').classList.add('open');});
+document.getElementById('closeInventory').addEventListener('click',()=>{document.getElementById('invPanel').classList.remove('open');});
+document.getElementById('notifyBtn').addEventListener('click',()=>{if(!isAnimating&&!S.gameOver)nextPendingUnit();});
+document.getElementById('combatBtn').addEventListener('click',()=>{if(!isAnimating&&!S.gameOver)nextCombatUnit();});
+document.getElementById('saveExit').addEventListener('click',()=>{
+  saveGame();
+  document.getElementById('app').classList.remove('open');
+  document.getElementById('startScreen').classList.remove('hide');
+  renderSlots(); S=null;
+});
+document.addEventListener('keydown',ev=>{
+  if (ev.key==='Escape') {
+    if (S&&S.summonMode) {S.summonMode=false;updateUI();draw();}
+    else document.getElementById('invPanel').classList.remove('open');
+  }
+});
+function animationLoop() {
+  const now=performance.now();
+  visualProj=visualProj.filter(p=>now-p.startTime<p.duration);
+  slashes=slashes.filter(s=>now-s.startTime<s.duration);
+  const dt=1/60;
+  for (const f of floaters) {f.y-=26*dt;f.life-=dt;}
+  floaters=floaters.filter(f=>f.life>0);
+  if (S) draw();
+  requestAnimationFrame(animationLoop);
+}
+requestAnimationFrame(animationLoop);
+
+try { renderSlots(); }
+catch(e) {
+  console.error('Init error:',e);
+  const el=document.getElementById('slots');
+  if (el) el.innerHTML='<div style="color:#f87171;padding:20px;grid-column:1/-1">Ошибка: '+e.message+'</div>';
+}
+</script>
+</body>
+</html>
