@@ -142,6 +142,51 @@
   .lum-card .name{font-size:14px;font-weight:700;color:#ffd700;margin-bottom:6px}
   .lum-card .desc{font-size:12px;color:#8fa3bd;line-height:1.5}
   .lum-card .lvl-badge{position:absolute;top:6px;right:8px;font-size:10px;color:#8fa3bd;background:#0a1220;padding:2px 6px;border-radius:4px;border:1px solid #2a3a52}
+  /* ---- Губка опознания ---- */
+  #identifyOverlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(4,7,12,.93);z-index:70}
+  #identifyOverlay.show{display:flex}
+  .id-box{text-align:center;max-width:420px;padding:20px}
+  .id-title{font-size:18px;color:#d0a0f0;margin-bottom:6px;font-weight:700}
+  .id-sub{font-size:12px;color:#8fa3bd;margin-bottom:14px;line-height:1.5}
+  #idCanvas{background:#15110c;border:2px solid #7a5a30;border-radius:12px;cursor:crosshair;touch-action:none;display:block;margin:0 auto}
+  .id-bar-wrap{height:8px;background:#0a1119;border-radius:4px;margin:14px auto 6px;max-width:320px;overflow:hidden;border:1px solid #2a3a52}
+  #idBar{height:100%;width:0%;background:linear-gradient(90deg,#7a3ae0,#e08fff);transition:width .1s;border-radius:4px}
+  .id-hint{font-size:11px;color:#6f8199}
+  #idFlashEl{position:fixed;inset:0;display:none;pointer-events:none;z-index:80;background:radial-gradient(circle at 50% 45%,rgba(255,240,200,.95) 0%,rgba(255,215,120,.5) 35%,rgba(255,215,120,0) 70%)}
+  #idFlashEl.show{display:block;animation:idFlash .55s ease-out forwards}
+  @keyframes idFlash{0%{opacity:0}15%{opacity:1}100%{opacity:0}}
+  #idReveal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);display:none;z-index:81;text-align:center;pointer-events:none}
+  #idReveal.show{display:block;animation:idPop .7s cubic-bezier(.2,1.4,.4,1) forwards}
+  #idReveal .ir-name{font-size:24px;font-weight:800;color:#ffd700;text-shadow:0 0 18px rgba(255,215,0,.7)}
+  #idReveal .ir-desc{font-size:14px;color:#e8d5a0;margin-top:6px}
+  @keyframes idPop{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}55%{opacity:1;transform:translate(-50%,-50%) scale(1.12)}100%{opacity:0;transform:translate(-50%,-50%) scale(1)}}
+  /* ---- Оценка в меню подготовки ---- */
+  .appraise-section{margin:0 0 18px;text-align:left}
+  .appraise-grid,.meta-sell-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px}
+  .appr-card{background:#101826;border:1px solid #2a3a52;border-radius:8px;padding:8px 4px;text-align:center;font-size:10.5px;color:#8fa3bd}
+  .appr-card .appr-icon{font-size:22px;margin-bottom:2px}
+  .appr-card .appr-btns{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+  .appr-card .appr-btns button,.meta-sell-grid button{padding:4px 2px;font-size:10.5px;width:100%}
+  .appr-card .appr-btns button.identify{background:linear-gradient(180deg,#2a1a3a,#1a1024);border-color:#5a3a7a;color:#d0a0f0}
+  .appr-card .appr-btns button.sellm{background:linear-gradient(180deg,#3a2f10,#241d08);border-color:#8a7020;color:#f0d080}
+  /* ---- Энциклопедия ---- */
+  #encycPanel{position:fixed;inset:0;display:none;background:rgba(5,8,14,.97);z-index:65;overflow-y:auto;padding:24px}
+  #encycPanel.open{display:block}
+  .enc-box{max-width:900px;margin:0 auto}
+  .enc-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+  .enc-head h2{margin:0;font-size:18px;color:#ffd700}
+  .enc-head button{width:auto;padding:6px 14px}
+  .enc-tabs{display:flex;gap:8px;margin-bottom:16px}
+  .enc-tab{width:auto;padding:7px 14px;font-size:12px;border-radius:8px 8px 0 0}
+  .enc-tab.active{background:linear-gradient(180deg,#2f4a70,#1c2f4a);border-color:#4a7ab0;color:#cfe8ff;font-weight:700}
+  .enc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+  .enc-card{background:#101826;border:1px solid #24344a;border-radius:10px;padding:12px;font-size:11.5px;line-height:1.5}
+  .enc-card.evo{border-color:#5a3a7a;background:#160e22}
+  .enc-card.passive{border-color:#2a4a3a;background:#0e1a14}
+  .enc-card .enc-title{font-weight:700;color:#cfe0f5;font-size:13px;margin-bottom:4px;display:flex;align-items:center;gap:6px}
+  .enc-card .enc-lvls{color:#8fa3bd;margin-top:6px}
+  .enc-card .enc-lvls b{color:#cfe0f5}
+  .enc-tag{display:inline-block;font-size:9.5px;padding:1px 6px;border-radius:4px;background:#0a1220;border:1px solid #2a3a52;color:#8fd0ff;margin-left:auto}
 </style>
 </head>
 <body>
@@ -154,6 +199,14 @@
   <div class="loc-title">Подготовка</div>
   <div class="loc-sub">Потратьте мета-золото перед забегом</div>
   <div class="meta-gold" id="metaGold">🪙 0</div>
+  <div class="shop-section appraise-section">
+    <div class="shop-title">🧽 Неопознанные предметы — опознайте губкой или продайте</div>
+    <div class="appraise-grid" id="appraiseGrid"></div>
+  </div>
+  <div class="shop-section appraise-section">
+    <div class="shop-title">🧺 Склад — продажа за мета-золото</div>
+    <div class="meta-sell-grid" id="metaSellGrid"></div>
+  </div>
   <div class="shop-section">
     <div class="shop-title">🏗 Здания и улучшения</div>
     <div class="shop-grid" id="shopGrid"></div>
@@ -181,6 +234,7 @@
     </div>
     <div class="panel" id="selection"></div>
     <button id="openInventory" class="inv">🎒 Инвентарь</button>
+    <button id="encycBtn" class="hold">📚 Энциклопедия</button>
     <div class="panel"><div id="log"></div></div>
   </aside>
 </div>
@@ -203,6 +257,24 @@
   <div class="lum-title">УРОВЕНЬ ПОВЫШЕН</div>
   <div class="lum-sub">Выберите одно улучшение</div>
   <div class="lum-cards" id="lumCards"></div>
+</div></div>
+<div id="identifyOverlay"><div class="id-box">
+  <div class="id-title">🧽 Опознание предметом... терпение!</div>
+  <div class="id-sub">Трите мышью / пальцем по картинке, пока предмет не проявится.</div>
+  <canvas id="idCanvas" width="280" height="280"></canvas>
+  <div class="id-bar-wrap"><div id="idBar"></div></div>
+  <div class="id-hint" id="idHint">Прогресс: 0%</div>
+</div></div>
+<div id="idFlashEl"></div>
+<div id="idReveal"><div class="ir-name" id="idRevealName"></div><div class="ir-desc" id="idRevealDesc"></div></div>
+<div id="encycPanel"><div class="enc-box">
+  <div class="enc-head"><h2>📚 Энциклопедия</h2><button id="encycClose">✕ Закрыть</button></div>
+  <div class="enc-tabs">
+    <button class="enc-tab active" data-enc-tab="skills">⚔ Навыки</button>
+    <button class="enc-tab" data-enc-tab="passives">🧿 Пассивки</button>
+    <button class="enc-tab" data-enc-tab="evolutions">✨ Эволюции</button>
+  </div>
+  <div class="enc-grid" id="encycBody"></div>
 </div></div>
 <div id="tooltip"></div>
 <script>
@@ -231,7 +303,7 @@ const ROUND_LENGTH=20;
 const XP_KILL=15, XP_BOSS=250, XP_WARRIOR=25, XP_ARCHER=18, XP_KNIGHT=30, XP_ZOMBIE=20;
 const STUN_CHANCE=0.10, BOSS_CHANCE=0.20;
 const POI_SPAWN_INTERVAL=5;
-const SAVE_PREFIX='ht_slot_', SAVE_VERSION=7;
+const SAVE_PREFIX='ht_slot_', SAVE_VERSION=8;
 const SHOP_COSTS={barracks:[75,100,150],archery:[100,150,200],cavalry:[125,175,250],forge_atk:[50,75,100,150,200],forge_def:[50,75,100,150,200]};
 const MAX_BUILDINGS=3, MAX_FORGE=5;
 
@@ -241,6 +313,7 @@ function defaultMeta() {
     inventory:{ equipment:{helmet:null,amulet:null,chest:null,weaponL:null,weaponR:null,ring:null,boots:null}, backpack:Array(20).fill(null), stash:Array(10).fill(null) },
     buildings:{barracks:0,archery:0,cavalry:0},
     forge:{atk:0,def:0},
+    unknown:[],
     runsCompleted:0
   };
 }
@@ -252,6 +325,8 @@ function normalizeMeta(meta) {
   if (!meta.forge||typeof meta.forge!=='object') meta.forge={atk:0,def:0};
   if (typeof meta.forge.atk!=='number') meta.forge.atk=0;
   if (typeof meta.forge.def!=='number') meta.forge.def=0;
+  if (!Array.isArray(meta.unknown)) meta.unknown=[];
+  meta.unknown=meta.unknown.filter(u=>u&&typeof u==='object'&&u.kind);
   if (typeof meta.runsCompleted!=='number') meta.runsCompleted=0;
   if (!meta.inventory||typeof meta.inventory!=='object') meta.inventory=defaultMeta().inventory;
   if (!meta.inventory.equipment||typeof meta.inventory.equipment!=='object') meta.inventory.equipment={helmet:null,amulet:null,chest:null,weaponL:null,weaponR:null,ring:null,boots:null};
@@ -774,7 +849,7 @@ function recalcHeroStats() {
   let atk=h.baseAtk, def=h.baseDef, maxHp=h.baseMaxHp, moves=HERO_TEMPLATE.moves;
   let manaBonus=0, weaponRange=2;
   for (const slot of Object.values(S.inventory.equipment)) {
-    if (!slot) continue;
+    if (!slot || slot.unknown) continue;
     const d=ITEM_DEFS[slot.kind]; if (!d) continue;
     atk+=d.atkBonus||0; def+=d.defBonus||0; maxHp+=d.hpBonus||0;
     moves+=d.moveBonus||0; manaBonus+=d.manaBonus||0;
@@ -889,9 +964,9 @@ function summon(q,r) {
 }
 function addLoot(kind) {
   let s=S.inventory.stash.findIndex(x=>x===null);
-  if (s!==-1){S.inventory.stash[s]={id:S.nextId++,kind};return;}
+  if (s!==-1){S.inventory.stash[s]={id:S.nextId++,kind,unknown:true};recalcHeroStats();return;}
   s=S.inventory.backpack.findIndex(x=>x===null);
-  if (s!==-1){S.inventory.backpack[s]={id:S.nextId++,kind};return;}
+  if (s!==-1){S.inventory.backpack[s]={id:S.nextId++,kind,unknown:true};recalcHeroStats();return;}
   addLog('⚠ Инвентарь полон!');
 }
 function rollDrop(tk) {
@@ -1006,6 +1081,13 @@ async function completeEvacuation() {
   S.gameOver=true;
   S.meta.gold+=S.gold;
   S.meta.inventory=deepClone(S.inventory);
+  // Неопознанный лут переносится в meta.unknown (для губки в меню подготовки)
+  if (!Array.isArray(S.meta.unknown)) S.meta.unknown=[];
+  const knownIds=new Set(S.meta.unknown.map(u=>u.id));
+  const allSlots=[...Object.values(S.inventory.equipment),...S.inventory.backpack,...S.inventory.stash];
+  for (const it of allSlots) {
+    if (it&&it.unknown&&!knownIds.has(it.id)) {knownIds.add(it.id);S.meta.unknown.push({id:it.id,kind:it.kind,unknown:true});}
+  }
   S.meta.runsCompleted=(S.meta.runsCompleted||0)+1;
   saveMeta();
   document.getElementById('over').className='show';
