@@ -177,6 +177,22 @@
   .lum-card .name{font-size:14px;font-weight:700;color:#ffd700;margin-bottom:6px}
   .lum-card .desc{font-size:12px;color:#8fa3bd;line-height:1.5}
   .lum-card .lvl-badge{position:absolute;top:6px;right:8px;font-size:10px;color:#8fa3bd;background:#0a1220;padding:2px 6px;border-radius:4px;border:1px solid #2a3a52}
+  #encycModal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(4,6,12,.93);z-index:70;padding:24px}
+  #encycModal.show{display:flex}
+  .enc-box{max-width:880px;width:100%;max-height:86vh;overflow-y:auto;background:#120e1c;border:2px solid #3a2a5a;border-radius:14px;padding:18px 22px}
+  .enc-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+  .enc-head h2{margin:0;font-size:18px;color:#ffd700}
+  .enc-head button{width:auto;padding:4px 14px}
+  .enc-section{font-size:12px;color:#a855f7;font-weight:700;margin:16px 0 8px;letter-spacing:.06em;text-transform:uppercase}
+  .enc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+  .enc-card{background:#1a1424;border:1px solid #3a2a5a;border-radius:10px;padding:10px 12px}
+  .enc-card .t{display:flex;align-items:center;gap:8px;font-weight:700;color:#e8d5a0;font-size:13px}
+  .enc-card .t .ic{font-size:22px}
+  .enc-card .k{font-size:10.5px;color:#8fa3bd;margin-top:4px;line-height:1.5}
+  .enc-card .k b{color:#cfe0f5}
+  .enc-lvl{font-size:10.5px;color:#6b7f99;line-height:1.6;margin-top:6px;border-top:1px dashed #2a2440;padding-top:6px}
+  .inv-slot.unknown::after{content:'?';position:absolute;top:1px;right:3px;font-size:10px;font-weight:800;color:#e08fff;text-shadow:0 0 4px #a855f7;z-index:2}
+  .sell-btn{width:100%;margin-top:4px;padding:2px 0 !important;font-size:10px !important}
 </style>
 </head>
 <body>
@@ -193,8 +209,11 @@
     <div class="shop-title">🏗 Здания и улучшения</div>
     <div class="shop-grid" id="shopGrid"></div>
   </div>
-  <div class="shop-title" style="text-align:left;margin-bottom:12px">🔮 Опознание и продажа</div>
+  <div class="shop-title" style="text-align:left;margin-bottom:12px">🔮 Опознание неизвестных предметов</div>
   <div class="shop-section"><div class="appraise-grid" id="appraiseGrid"></div></div>
+  <div class="appraise-btns" id="appraiseBtns"></div>
+  <div class="shop-title" style="text-align:left;margin-bottom:12px">💰 Продажа (только опознанное)</div>
+  <div class="shop-section"><div class="appraise-grid" id="metaSellGrid"></div></div>
   <div class="shop-title" style="text-align:left;margin-bottom:12px">🗺 Локации</div>
   <div class="loc-grid" id="locGrid"></div>
   <button class="menu-btn" id="locBack" style="width:auto;padding:6px 14px;margin-top:14px;display:none">← В главное меню</button>
@@ -209,6 +228,7 @@
     <div style="display:flex;gap:6px">
       <h1 style="flex:1">Hex Tactics</h1>
       <button class="menu-btn" id="saveExit" style="width:auto;padding:4px 8px">💾</button>
+      <button class="menu-btn" id="encycBtn" style="width:auto;padding:4px 8px">📜</button>
     </div>
     <div class="panel res-grid">
       <div class="res" id="resMana"><span>💧 Мана</span><b>0</b></div>
@@ -237,6 +257,10 @@
   <div class="inv-section-title">Продажа (только опознанное)</div>
   <div class="inv-grid" id="invSell"></div>
 </div>
+<div id="encycModal"><div class="enc-box">
+  <div class="enc-head"><h2>📜 Энциклопедия навыков</h2><button class="menu-btn" id="encycClose">✕ Закрыть</button></div>
+  <div id="encycBody"></div>
+</div></div>
 <div id="identifyOverlay"><div class="id-box">
   <div class="id-hint">Трите предмет «губкой», чтобы проявить его</div>
   <div class="id-stage" id="idStage">
@@ -935,20 +959,37 @@ function summon(q,r) {
   updateUI(); draw();
   return true;
 }
-function addLoot(kind) {
+function addLoot(drop) {
+  const it={id:S.nextId++,kind:drop.kind,unknown:!!drop.unknown};
   let s=S.inventory.stash.findIndex(x=>x===null);
-  if (s!==-1){S.inventory.stash[s]={id:S.nextId++,kind};return;}
+  if (s!==-1){S.inventory.stash[s]=it;return;}
   s=S.inventory.backpack.findIndex(x=>x===null);
-  if (s!==-1){S.inventory.backpack[s]={id:S.nextId++,kind};return;}
+  if (s!==-1){S.inventory.backpack[s]=it;return;}
   addLog('⚠ Инвентарь полон!');
+}
+const ITEM_RARITY={common:{name:'Обычное',color:'#9aa7b8'},uncommon:{name:'Магическое',color:'#4fa3ff'},rare:{name:'Редкое',color:'#ffd700'}};
+function itemRarity(kind) {
+  const d=ITEM_DEFS[kind]; if (!d) return 'common';
+  if (d.rare) return 'rare';
+  if ((d.atkBonus||0)+(d.defBonus||0)+(d.manaBonus||0)+(d.hpBonus||0)+(d.moveBonus||0)>0) return 'uncommon';
+  return 'common';
+}
+function sellPrice(kind) {
+  const r=itemRarity(kind);
+  return r==='rare'?60:r==='uncommon'?25:8;
 }
 function rollDrop(tk) {
   const t=DROP_TABLES[tk];if(!t)return null;
   const r=Math.random();
-  if (r<t.rare) return t.pool.rare.length?t.pool.rare[Math.floor(Math.random()*t.pool.rare.length)]:null;
-  if (r<t.rare+t.uncommon) return t.pool.uncommon.length?t.pool.uncommon[Math.floor(Math.random()*t.pool.uncommon.length)]:null;
-  return t.pool.common.length?t.pool.common[Math.floor(Math.random()*t.pool.common.length)]:null;
+  let kind=null,rar='common';
+  if (r<t.rare) {kind=t.pool.rare.length?t.pool.rare[Math.floor(Math.random()*t.pool.rare.length)]:null;rar='rare';}
+  else if (r<t.rare+t.uncommon) {kind=t.pool.uncommon.length?t.pool.uncommon[Math.floor(Math.random()*t.pool.uncommon.length)]:null;rar='uncommon';}
+  else {kind=t.pool.common.length?t.pool.common[Math.floor(Math.random()*t.pool.common.length)]:null;}
+  if (!kind) return null;
+  const unId=rar!=='common'&&Math.random()<0.6;
+  return {kind,unknown:unId};
 }
+function lootName(drop) { return drop.unknown?'Неизвестный предмет':ITEM_DEFS[drop.kind].name; }
 function checkPOI(u) {
   const poi=poiAt(u.q,u.r); if (!poi||poi.kind==='evacuation') return;
   const info=POI_INFO[poi.kind];
@@ -956,16 +997,16 @@ function checkPOI(u) {
     poi.looted=true;
     const gold=30+Math.floor(Math.random()*31); S.gold+=gold;
     const ik=rollDrop('chest'); if (ik) addLoot(ik);
-    addLog(`💰 ${info.name}! +${gold}${ik?', +'+ITEM_DEFS[ik].name:''}`,true);
+    addLog(`💰 ${info.name}! +${gold}${ik?', +'+lootName(ik):''}`,true);
   } else if (poi.kind==='camp') {
     poi.looted=true;
     const gold=40+Math.floor(Math.random()*21); S.gold+=gold;
     const ik=rollDrop('camp'); if (ik) addLoot(ik);
-    addLog(`🏴 ${info.name}! +${gold}${ik?', +'+ITEM_DEFS[ik].name:''}`,true);
+    addLog(`🏴 ${info.name}! +${gold}${ik?', +'+lootName(ik):''}`,true);
   } else if (poi.kind==='ruin') {
     poi.looted=true;
     const ik=rollDrop('ruin'); if (ik) addLoot(ik);
-    addLog(`🏛 ${info.name}!${ik?' +'+ITEM_DEFS[ik].name:''}`,true);
+    addLog(`🏛 ${info.name}!${ik?' +'+lootName(ik):''}`,true);
   } else if (poi.kind==='shrine') {
     poi.looted=true; S.hero.manaBonus+=3;
     addLog('⛩ Святилище! +3💧/ход',true);
@@ -2387,25 +2428,48 @@ function renderInventory() {
   document.getElementById('invEquip').innerHTML=order.map(k=>{
     const it=eq[k];
     const c=it?`<span>${(ITEM_DEFS[it.kind]||{}).icon||'?'}</span>`:`<span class="empty-hint">${labels[k].slice(0,4)}</span><span class="slot-label">${labels[k]}</span>`;
-    return `<div class="inv-slot equip" draggable="true" data-path="equip:${k}" data-item-kind="${it?it.kind:''}">${c}</div>`;
+    return `<div class="inv-slot equip" draggable="true" data-path="equip:${k}" data-item-id="${it?it.id:''}">${c}</div>`;
   }).join('');
   document.getElementById('invBackpack').innerHTML=S.inventory.backpack.map((it,i)=>{
-    const c=it?`<span>${(ITEM_DEFS[it.kind]||{}).icon||'?'}</span>`:'';
-    return `<div class="inv-slot" draggable="true" data-path="back:${i}" data-item-kind="${it?it.kind:''}">${c}</div>`;
+    const un=it&&it.unknown;
+    const c=it?`<span${un?' class="appraise-item-icon"':''}>${un?'❓':(ITEM_DEFS[it.kind]||{}).icon||'?'}</span>`:'';
+    return `<div class="inv-slot${un?' unknown':''}" draggable="true" data-path="back:${i}" data-item-id="${it?it.id:''}">${c}</div>`;
   }).join('');
   document.getElementById('invStash').innerHTML=S.inventory.stash.map((it,i)=>{
-    const c=it?`<span>${(ITEM_DEFS[it.kind]||{}).icon||'?'}</span>`:'';
-    return `<div class="inv-slot" draggable="true" data-path="stash:${i}" data-item-kind="${it?it.kind:''}">${c}</div>`;
+    const un=it&&it.unknown;
+    const c=it?`<span${un?' class="appraise-item-icon"':''}>${un?'❓':(ITEM_DEFS[it.kind]||{}).icon||'?'}</span>`:'';
+    return `<div class="inv-slot${un?' unknown':''}" draggable="true" data-path="stash:${i}" data-item-id="${it?it.id:''}">${c}</div>`;
   }).join('');
-  document.querySelectorAll('#invPanel .inv-slot').forEach(s=>{
-    s.addEventListener('dragstart',onInvDragStart);
-    s.addEventListener('dragover',onInvDragOver);
-    s.addEventListener('dragleave',onInvDragLeave);
-    s.addEventListener('drop',onInvDrop);
-    s.addEventListener('dragend',onInvDragEnd);
-    s.addEventListener('mouseenter',onInvHover);
-    s.addEventListener('mousemove',onInvMove);
-    s.addEventListener('mouseleave',onInvLeave);
+  const sellable=[];
+  for (const [path,arr] of [['back',S.inventory.backpack],['stash',S.inventory.stash]]) {
+    arr.forEach((it,i)=>{ if (it&&!it.unknown) sellable.push({it,path,i}); });
+  }
+  document.getElementById('invSell').innerHTML=sellable.length?sellable.map(s=>{
+    const d=ITEM_DEFS[s.it.kind]||{};
+    return `<div class="inv-slot" style="cursor:default"><span>${d.icon||'?'}</span><button class="btn-sell sell-btn" data-sell="${s.path}:${s.i}">💰 ${sellPrice(s.it.kind)}🪙</button></div>`;
+  }).join(''):'<div class="appraise-empty">Нет опознанных предметов для продажи</div>';
+  document.querySelectorAll('#invPanel .inv-slot').forEach(sl=>{
+    sl.addEventListener('dragstart',onInvDragStart);
+    sl.addEventListener('dragover',onInvDragOver);
+    sl.addEventListener('dragleave',onInvDragLeave);
+    sl.addEventListener('drop',onInvDrop);
+    sl.addEventListener('dragend',onInvDragEnd);
+    sl.addEventListener('mouseenter',onInvHover);
+    sl.addEventListener('mousemove',onInvMove);
+    sl.addEventListener('mouseleave',onInvLeave);
+  });
+  document.querySelectorAll('#invSell [data-sell]').forEach(b=>{
+    b.addEventListener('click',ev=>{
+      ev.stopPropagation();
+      const p=b.dataset.sell.split(':');
+      const arr=p[0]==='back'?S.inventory.backpack:S.inventory.stash;
+      const it=arr[parseInt(p[1])];
+      if (!it||it.unknown) return;
+      S.gold+=sellPrice(it.kind);
+      addLog(`💰 Продано: ${ITEM_DEFS[it.kind].name} +${sellPrice(it.kind)}🪙`,true);
+      arr[parseInt(p[1])]=null;
+      recalcHeroStats(); renderInventory(); updateUI(); draw(); saveGame();
+    });
   });
 }
 function onInvDragStart(ev){dragSrcSlot=ev.currentTarget.dataset.path;ev.currentTarget.classList.add('dragging');ev.dataTransfer.effectAllowed='move';ev.dataTransfer.setData('text/plain',dragSrcSlot);}
