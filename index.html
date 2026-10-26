@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Hex Tactics — v17 · обновлено 26.10.2026 02:57</title>
-<meta name="game-version" content="v17">
-<meta name="last-update" content="26.10.2026 02:57">
+<title>Hex Tactics — v18 · обновлено 26.10.2026 03:20</title>
+<meta name="game-version" content="v18">
+<meta name="last-update" content="26.10.2026 03:20">
 <style>
   *{box-sizing:border-box}
   html,body{height:100%}
@@ -147,7 +147,7 @@
 <body>
 <div id="startScreen"><div class="start-box">
   <div class="start-title">HEX TACTICS</div>
-  <div class="start-sub">Орда · Тактическая роглайт · v17 · обновлено 26.10.2026 02:57</div>
+  <div class="start-sub">Орда · Тактическая роглайт · v18 · обновлено 26.10.2026 03:20</div>
   <div class="slots" id="slots"></div>
 </div></div>
 <div id="locationScreen"><div class="loc-box">
@@ -160,6 +160,7 @@
   </div>
   <div class="shop-title" style="text-align:left;margin-bottom:12px">🗺 Локации</div>
   <div class="loc-grid" id="locGrid"></div>
+  <button class="menu-btn" id="locBack" style="width:auto;padding:6px 14px;margin-top:14px;display:none">← В главное меню</button>
 </div></div>
 <div id="app">
   <div id="board"><canvas id="cv"></canvas></div>
@@ -183,7 +184,7 @@
     <div class="panel"><div id="log"></div></div>
   </aside>
 </div>
-<div id="footerBar">Версия <b>v17</b> · Последнее обновление: <b>26.10.2026 02:57</b></div>
+<div id="footerBar">Версия <b>v18</b> · Последнее обновление: <b>26.10.2026 03:20</b></div>
 <div id="over"><div class="box">
   <h2 id="overTitle"></h2><p id="overText"></p>
   <button id="restart">В главное меню</button>
@@ -215,8 +216,9 @@ const STORAGE = (function() {
   }
 })();
 
-const SIZE=30, R=10, SQRT3=Math.sqrt(3);
+let SIZE=30, R=10, SQRT3=Math.sqrt(3);
 let W=690, H=420, CX=W/2, CY=H/2;
+let camX=0, camY=0;
 let S=null;
 const DIRS=[[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
 const KNIGHT_DIRS=[[2,-1],[1,-2],[-1,-2],[-2,-1],[-2,1],[-1,2],[1,2],[2,1]];
@@ -229,7 +231,7 @@ const ROUND_LENGTH=20;
 const XP_KILL=15, XP_BOSS=250, XP_WARRIOR=25, XP_ARCHER=18, XP_KNIGHT=30, XP_ZOMBIE=20;
 const STUN_CHANCE=0.10, BOSS_CHANCE=0.20;
 const POI_SPAWN_INTERVAL=5;
-const SAVE_PREFIX='ht_slot_', SAVE_VERSION=6;
+const SAVE_PREFIX='ht_slot_', SAVE_VERSION=7;
 const SHOP_COSTS={barracks:[75,100,150],archery:[100,150,200],cavalry:[125,175,250],forge_atk:[50,75,100,150,200],forge_def:[50,75,100,150,200]};
 const MAX_BUILDINGS=3, MAX_FORGE=5;
 
@@ -241,6 +243,24 @@ function defaultMeta() {
     forge:{atk:0,def:0},
     runsCompleted:0
   };
+}
+function normalizeMeta(meta) {
+  if (!meta||typeof meta!=='object') meta=defaultMeta();
+  if (typeof meta.gold!=='number'||!isFinite(meta.gold)) meta.gold=0;
+  if (!meta.buildings||typeof meta.buildings!=='object') meta.buildings={barracks:0,archery:0,cavalry:0};
+  for (const b of ['barracks','archery','cavalry']) if (typeof meta.buildings[b]!=='number') meta.buildings[b]=0;
+  if (!meta.forge||typeof meta.forge!=='object') meta.forge={atk:0,def:0};
+  if (typeof meta.forge.atk!=='number') meta.forge.atk=0;
+  if (typeof meta.forge.def!=='number') meta.forge.def=0;
+  if (typeof meta.runsCompleted!=='number') meta.runsCompleted=0;
+  if (!meta.inventory||typeof meta.inventory!=='object') meta.inventory=defaultMeta().inventory;
+  if (!meta.inventory.equipment||typeof meta.inventory.equipment!=='object') meta.inventory.equipment={helmet:null,amulet:null,chest:null,weaponL:null,weaponR:null,ring:null,boots:null};
+  for (const k of ['helmet','amulet','chest','weaponL','weaponR','ring','boots']) if (!(k in meta.inventory.equipment)) meta.inventory.equipment[k]=null;
+  if (!Array.isArray(meta.inventory.backpack)) meta.inventory.backpack=Array(20).fill(null);
+  while (meta.inventory.backpack.length<20) meta.inventory.backpack.push(null);
+  if (!Array.isArray(meta.inventory.stash)) meta.inventory.stash=Array(10).fill(null);
+  while (meta.inventory.stash.length<10) meta.inventory.stash.push(null);
+  return meta;
 }
 
 const HERO_TEMPLATE={name:'Некромант',hp:60,atk:3,def:2,moves:1,regen:2,manaPerTurn:5,color:'#7c3aed',dark:'#3a1a5c'};
@@ -313,7 +333,6 @@ const invTooltip=document.getElementById('invTooltip');
 let currentSlot=-1, currentLocation=1;
 let isAnimating=false, phase=null;
 let visualProj=[], slashes=[], floaters=[], fxAnims=[];
-let camX=0, camY=0;
 let mouseDownInfo=null, isDragging=false, dragSrcSlot=null;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
@@ -505,8 +524,12 @@ function loadGame(slotId) {
     const p=JSON.parse(raw);
     if (p._version!==SAVE_VERSION) { STORAGE.del(SAVE_PREFIX+slotId); return false; }
     if (!p.meta) p.meta=defaultMeta();
+    p.meta=normalizeMeta(p.meta);
     if (p.gameOver || !p.units) {
-      return false;
+      currentSlot=slotId;
+      document.getElementById('locationScreen').classList.add('show');
+      renderLocations(p.meta);
+      return true;
     }
     S=p;
     S.hero=S.units.find(u=>u.isHero);
@@ -579,11 +602,12 @@ document.getElementById('slots').addEventListener('click', e=>{
   const sid=parseInt(btn.dataset.slot);
   const raw=STORAGE.get(SAVE_PREFIX+sid);
   if (btn.dataset.action==='delete') deleteSlot(sid);
-  else if (btn.dataset.action==='continue') loadGame(sid);
+  else if (btn.dataset.action==='continue') { if (!loadGame(sid)) renderSlots(); }
   else if (btn.dataset.action==='shop') {
     currentSlot=sid;
-    const save=raw?JSON.parse(raw):null;
-    const meta=(save&&save.meta)||defaultMeta();
+    let meta=defaultMeta();
+    try { const save=raw?JSON.parse(raw):null; if (save&&save.meta) meta=save.meta; } catch(e){}
+    meta=normalizeMeta(meta);
     S={meta};
     document.getElementById('locationScreen').classList.add('show');
     renderLocations(meta);
@@ -609,6 +633,8 @@ function renderLocations(meta) {
     <div class="loc-card locked"><div class="loc-icon">🔒</div><div class="loc-name">Шахты</div><div class="loc-desc">Скоро</div></div>
     <div class="loc-card locked"><div class="loc-icon">🔒</div><div class="loc-name">Лес</div><div class="loc-desc">Скоро</div></div>
   `;
+  const backBtn=document.getElementById('locBack');
+  if (backBtn) backBtn.style.display='';
   locGrid.querySelectorAll('.loc-card[data-loc]').forEach(c=>{
     c.addEventListener('click',()=>{
       currentLocation=parseInt(c.dataset.loc);
@@ -2526,6 +2552,7 @@ document.getElementById('actions').addEventListener('click',ev=>{
 document.getElementById('endTurn').addEventListener('click',doEndTurn);
 document.getElementById('restart').addEventListener('click',()=>{
   document.getElementById('over').classList.remove('show');
+  document.getElementById('over').className='';
   document.getElementById('app').classList.remove('open');
   document.getElementById('startScreen').classList.remove('hide');
   renderSlots(); S=null;
@@ -2540,6 +2567,13 @@ document.getElementById('saveExit').addEventListener('click',()=>{
   document.getElementById('startScreen').classList.remove('hide');
   renderSlots(); S=null;
 });
+(function(){
+  const backBtn=document.getElementById('locBack');
+  if (backBtn) backBtn.addEventListener('click',()=>{
+    document.getElementById('locationScreen').classList.remove('show');
+    renderSlots();
+  });
+})();
 document.addEventListener('keydown',ev=>{
   if (ev.key==='Escape') {
     if (S&&S.summonMode) {S.summonMode=false;updateUI();draw();}
